@@ -9,6 +9,7 @@ description = "A build tool for OpenSCAD projects"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.0",
+    "jproperties>=2.0",
 ]
 
 [project.optional-dependencies]

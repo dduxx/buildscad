@@ -75,14 +75,14 @@ def test_init_properties_content(project_root):
         assert f"{DEFAULT_VALUES[PROP_VERSION]}" in content
         assert f"{DEFAULT_VALUES[PROP_AUTHOR]}" in content
         assert f"{DEFAULT_VALUES[PROP_ASSEMBLIES]}" in content
-        assert f"#{PROP_LOG_LEVEL}={DEFAULT_VALUES[PROP_LOG_LEVEL]}" in content
-        assert f"#{PROP_OPENSCAD_PATH}={DEFAULT_VALUES[PROP_OPENSCAD_PATH]}" in content
+        assert f"# {PROP_LOG_LEVEL}={DEFAULT_VALUES[PROP_LOG_LEVEL]}" in content
+        assert f"# {PROP_OPENSCAD_PATH}={DEFAULT_VALUES[PROP_OPENSCAD_PATH]}" in content
 
 
 def test_init_with_name_argument(tmp_dir):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(tmp_dir)):
-        result = runner.invoke(cli, ["init", "my-custom-project"])
+        result = runner.invoke(cli, ["init", "--name", "my-custom-project"])
         assert result.exit_code == 0
         project_dir = Path("my-custom-project")
         assert project_dir.exists()
@@ -98,7 +98,7 @@ def test_init_with_name_argument(tmp_dir):
 def test_init_name_nested_directory(tmp_dir):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(tmp_dir)):
-        result = runner.invoke(cli, ["init", "path/to/my-project"])
+        result = runner.invoke(cli, ["init", "--name", "path/to/my-project"])
         assert result.exit_code == 0
         project_dir = Path("path/to/my-project")
         assert project_dir.exists()
@@ -135,7 +135,8 @@ def test_clean(project_root, log_output):
 
         runner.invoke(cli, ["clean"])
         output = log_output.getvalue()
-        assert not deps_dir.exists()
+        assert deps_dir.exists()
+        assert len(list(deps_dir.iterdir())) == 0
         assert "Dependencies cleaned." in output
 
 

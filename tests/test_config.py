@@ -89,8 +89,8 @@ def test_write_properties(project_root):
     write_properties(props, project_root)
     content = project_root.joinpath("buildscad.properties").read_text()
     assert f"{PROP_PROJECT}=test-project" in content
-    assert f"#{PROP_LOG_LEVEL}=DEBUG" in content
-    assert f"#{PROP_OPENSCAD_PATH}=/opt/openscad" in content
+    assert f"# {PROP_LOG_LEVEL}=DEBUG" in content
+    assert f"# {PROP_OPENSCAD_PATH}=/opt/openscad" in content
 
 
 def test_write_deps(project_root):

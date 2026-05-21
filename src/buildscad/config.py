@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from jproperties import Properties
 
 PROP_PROJECT = "BUILDSCAD_PROJECT"
 PROP_VERSION = "BUILDSCAD_VERSION"
@@ -55,17 +56,10 @@ def load_properties(project_root: Path | None = None) -> dict[str, str]:
     if not props_path.exists():
         raise FileNotFoundError(f"buildscad.properties not found in {root}")
 
-    properties = {}
-    with open(props_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" in line:
-                key, value = line.split("=", 1)
-                properties[key.strip()] = value.strip()
-
-    return properties
+    props = Properties()
+    with open(props_path, "rb") as f:
+        props.load(f)
+    return {k: v.data for k, v in props.items()}
 
 
 def get_property(
