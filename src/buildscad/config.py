@@ -31,14 +31,26 @@ DEFAULT_MAIN_FILE = "main.scad"
 GITIGNORE_FILE = ".gitignore"
 
 DEFAULT_GITIGNORE_CONTENTS = """
+# buildscad
 stl/
 dependencies/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editors
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
+*.sublime-*
+
+# OS
 .DS_Store
-__pycache__/
-*.pyc
+Thumbs.db
 """
 
 
