@@ -104,13 +104,13 @@ def get_assemblies(project_root: Path | None = None) -> list[str]:
 
 
 def load_deps(project_root: Path | None = None) -> list[dict]:
-    root = project_root or get_project_root()
-    deps_path = root.joinpath(f"{DEPS_FILE}")
+    if project_root is None:
+        project_root = get_project_root()
+
+    deps_path = project_root.joinpath(f"{DEPS_FILE}")
 
     if not deps_path.exists():
-        raise FileNotFoundError(
-            f"{DEPS_FILE} not found in {root} or any parent directory"
-        )
+        raise FileNotFoundError(f"{DEPS_FILE} not found in {project_root}.")
 
     with open(deps_path) as f:
         deps = json.load(f)
@@ -124,8 +124,10 @@ def load_deps(project_root: Path | None = None) -> list[dict]:
 def write_properties(
     properties: dict[str, str], project_root: Path | None = None
 ) -> None:
-    root = project_root or Path.cwd()
-    props_path = root.joinpath(PROPERTIES_FILE)
+    if project_root is None:
+        project_root = get_project_root()
+
+    props_path = project_root.joinpath(PROPERTIES_FILE)
 
     lines = []
     for key in REQUIRED_PROPS:
@@ -141,7 +143,9 @@ def write_properties(
 
 
 def write_deps(deps: list[dict], project_root: Path | None = None) -> None:
-    root = project_root or Path.cwd()
-    deps_path = root.joinpath(DEPS_FILE)
+    if project_root is None:
+        project_root = get_project_root()
+
+    deps_path = project_root.joinpath(DEPS_FILE)
     with open(deps_path, "w") as f:
         json.dump(deps, f, indent=2)

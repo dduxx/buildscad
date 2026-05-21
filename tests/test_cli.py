@@ -130,6 +130,24 @@ def test_clean(project_root, log_output):
         assert not stl_dir.joinpath("test.stl").exists()
 
 
+def test_clean_keeps_stl_when_flag_set(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        deps_dir = Path("dependencies")
+        deps_dir.mkdir()
+        deps_dir.joinpath("fake:dep:v1").mkdir()
+        stl_dir = Path("stl")
+        stl_dir.joinpath("test.stl").write_text("fake stl")
+
+        runner.invoke(cli, ["clean", "--keep-stl"])
+        output = log_output.getvalue()
+        assert "Dependencies cleaned." in output
+        assert "Keeping STL assemblies." in output
+        assert "Finished cleaning built stl assemblies." not in output
+        assert stl_dir.joinpath("test.stl").exists()
+
+
 def test_clean_no_deps_folder(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):

@@ -18,7 +18,7 @@ from buildscad.config import (
     STL_DIR,
     GITIGNORE_FILE,
     DEFAULT_GITIGNORE_CONTENTS,
-    DEP_DIR,
+    DEPS_FILE,
 )
 from buildscad.dependencies import install_all_dependencies, clean_dependencies
 from buildscad.builder import build_all
@@ -90,7 +90,7 @@ def init(name):
     logger.debug(f"Created {PROPERTIES_FILE}")
 
     write_deps([], project_root)
-    logger.debug("Created deps.json")
+    logger.debug(f"Created {DEPS_FILE}")
 
     scad_dir = project_root.joinpath(SCAD_DIR)
     scad_dir.mkdir(parents=True, exist_ok=True)
@@ -128,13 +128,18 @@ def pull(ignore_cache):
 
 
 @cli.command()
-def clean():
+@click.option("--keep-stl", is_flag=True, help="Skip deleting STL assemblies.")
+def clean(keep_stl):
     """Clean the project dependencies and STL output files."""
 
     logger.info("Cleaning dependencies.")
     project_root = get_project_root()
     clean_dependencies(project_root)
     logger.info("Dependencies cleaned.")
+
+    if keep_stl:
+        logger.info("Keeping STL assemblies.")
+        return
 
     logger.info("Cleaning built stl assemblies.")
     stl_dir = project_root.joinpath(STL_DIR)

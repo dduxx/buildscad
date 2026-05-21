@@ -3,7 +3,8 @@ import shutil
 import subprocess
 from pathlib import Path
 import logging
-from buildscad.config import DEP_DIR
+from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE
+from buildscad.config import load_deps as config_load_deps
 
 logger = logging.getLogger("buildscad")
 
@@ -43,6 +44,32 @@ def get_dependencies_dir(project_root: Path) -> Path:
     return project_root.joinpath(DEP_DIR)
 
 
+def is_buildscad_project(dep_path: Path) -> bool:
+    return (
+        dep_path.joinpath(PROPERTIES_FILE).exists()
+        and dep_path.joinpath(DEPS_FILE).exists()
+    )
+
+
+def _create_symlink(dep_path: Path, project_root: Path) -> None:
+    sub_dep_dir = dep_path.joinpath(DEP_DIR)
+    sub_dep_dir.mkdir(parents=True, exist_ok=True)
+
+    top_deps_dir = get_dependencies_dir(project_root)
+
+    for item in top_deps_dir.iterdir():
+        if not item.is_dir() and not item.is_symlink():
+            continue
+
+        link_path = sub_dep_dir.joinpath(item.name)
+        if link_path.exists() or link_path.is_symlink():
+            continue
+
+        relative_path = Path("..").joinpath(item.name)
+        link_path.symlink_to(relative_path)
+        logger.debug(f"Symlinked {item.name} -> {relative_path}")
+
+
 def install_dependency(
     url: str, ref: str, project_root: Path, ignore_cache: bool = False
 ) -> Path:
@@ -73,14 +100,47 @@ def install_dependency(
 
 
 def install_all_dependencies(
-    deps: list[dict], project_root: Path, ignore_cache: bool = False
+    deps: list[dict],
+    project_root: Path,
+    ignore_cache: bool = False,
+    seen: set | None = None,
 ) -> list[Path]:
+    if seen is None:
+        seen = set()
+
     installed = []
     for dep in deps:
         url = dep["url"]
         ref = dep.get("ref", "main")
+        key = f"{url}:{ref}"
+
+        if key in seen:
+            logger.debug(f"Skipping already processed dependency: {key}")
+            continue
+
+        seen.add(key)
+
         path = install_dependency(url, ref, project_root, ignore_cache)
         installed.append(path)
+
+        if is_buildscad_project(path):
+            logger.debug(
+                f"Dependency {path.name} is a buildscad project, resolving its dependencies..."
+            )
+            try:
+                sub_deps = config_load_deps(path)
+                if sub_deps:
+                    sub_installed = install_all_dependencies(
+                        sub_deps, project_root, ignore_cache, seen
+                    )
+                    _create_symlink(path, project_root)
+                    installed.extend(sub_installed)
+                    logger.debug(f"Finished resolving dependencies for {path.name}")
+            except ValueError:
+                logger.debug(
+                    f"Dependency {path.name} has invalid {DEPS_FILE}, skipping recursive resolution."
+                )
+
     return installed
 
 
@@ -94,4 +154,4 @@ def get_dependency_paths(project_root: Path) -> list[str]:
     deps_dir = get_dependencies_dir(project_root)
     if not deps_dir.exists():
         return []
-    return [str(d) for d in deps_dir.iterdir() if d.is_dir()]
+    return [str(d) for d in deps_dir.iterdir() if d.is_dir() or d.is_symlink()]
