@@ -81,29 +81,31 @@ def init(name):
         logger.warning("buildscad project already initialized.")
         return
 
+    logger.info(f"Initializing buildscad project: {name}")
+
     properties = deepcopy(DEFAULT_VALUES)
     properties[PROP_PROJECT] = name
 
     write_properties(properties, project_root)
-    logger.info(f"Created {PROPERTIES_FILE}")
+    logger.debug(f"Created {PROPERTIES_FILE}")
 
     write_deps([], project_root)
-    logger.info("Created deps.json")
+    logger.debug("Created deps.json")
 
     scad_dir = project_root.joinpath(SCAD_DIR)
     scad_dir.mkdir(parents=True, exist_ok=True)
     scad_dir.joinpath(DEFAULT_MAIN_FILE).write_text("")
-    logger.info(f"Created {SCAD_DIR}/{DEFAULT_MAIN_FILE}")
+    logger.debug(f"Created {SCAD_DIR}/{DEFAULT_MAIN_FILE}")
 
     stl_dir = project_root.joinpath(STL_DIR)
     stl_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Created {STL_DIR}/")
+    logger.debug(f"Created {STL_DIR}/")
 
     gitignore = project_root.joinpath(GITIGNORE_FILE)
     gitignore.write_text(DEFAULT_GITIGNORE_CONTENTS)
-    logger.info(f"Created {GITIGNORE_FILE}")
+    logger.debug(f"Created {GITIGNORE_FILE}")
 
-    logger.info("Project initialized successfully.")
+    logger.info(f"Finished initializing buildscad project: {name}")
 
 
 @cli.command()
@@ -121,23 +123,25 @@ def pull(ignore_cache):
         return
 
     logger.info(f"Installing {len(deps)} dependencies...")
-    installed = install_all_dependencies(deps, project_root, ignore_cache)
-    for path in installed:
-        logger.debug(
-            f"Installed: {path.name}"
-        )  # TODO this needs to change and log from inside install deps function
-
+    install_all_dependencies(deps, project_root, ignore_cache)
     logger.info(f"Done installing {len(deps)} dependencies.")
 
 
 @cli.command()
 def clean():
-    """Clean the project dependencies."""
+    """Clean the project dependencies and STL output files."""
 
+    logger.info("Cleaning dependencies.")
     project_root = get_project_root()
     clean_dependencies(project_root)
-    project_root.joinpath(DEP_DIR).mkdir()
     logger.info("Dependencies cleaned.")
+
+    logger.info("Cleaning built stl assemblies.")
+    stl_dir = project_root.joinpath(STL_DIR)
+    if stl_dir.exists():
+        for stl_file in stl_dir.glob("*.stl"):
+            stl_file.unlink()
+    logger.info("Finished cleaning built stl assemblies.")
 
 
 @cli.command()
@@ -145,6 +149,8 @@ def build():
     """Build assemblies into STL files."""
 
     project_root = get_project_root()
+
+    logger.info(f"Building project {project_root.name}")
 
     deps = load_deps(project_root)
     if deps:
@@ -158,11 +164,7 @@ def build():
         return
 
     logger.info(f"Building {len(assemblies)} assemblies...")
-    built = build_all(assemblies, project_root)
-    for input_path, output_path in built:
-        logger.info(
-            f"{input_path} -> {output_path}"
-        )  # TODO move this logging into the build setep
+    build_all(assemblies, project_root)
 
     logger.info(f"Built {len(assemblies)} assemblies.")
 

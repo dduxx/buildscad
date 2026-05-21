@@ -2,8 +2,10 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+import logging
+from buildscad.config import DEP_DIR
 
-DEPENDENCIES_DIR = "dependencies"
+logger = logging.getLogger("buildscad")
 
 
 def sanitize_name(name: str) -> str:
@@ -38,18 +40,21 @@ def get_dependency_dir_name(url: str, ref: str) -> str:
 
 
 def get_dependencies_dir(project_root: Path) -> Path:
-    return project_root.joinpath(DEPENDENCIES_DIR)
+    return project_root.joinpath(DEP_DIR)
 
 
 def install_dependency(
     url: str, ref: str, project_root: Path, ignore_cache: bool = False
 ) -> Path:
+    logger.debug(f"Installing dependency {url} : {ref}")
     deps_dir = get_dependencies_dir(project_root)
     dep_name = get_dependency_dir_name(url, ref)
     dep_path = deps_dir.joinpath(dep_name)
 
     if dep_path.exists():
+        logger.debug(f"Dependency already exists.")
         if ignore_cache:
+            logger.debug(f"Deleting existing dependency.")
             shutil.rmtree(dep_path)
         else:
             return dep_path
@@ -61,6 +66,8 @@ def install_dependency(
         check=True,
         capture_output=True,
     )
+
+    logger.debug(f"Finished installing dependency {url} : {ref}")
 
     return dep_path
 

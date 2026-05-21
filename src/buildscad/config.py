@@ -24,6 +24,7 @@ DEFAULT_VALUES = {
 SCAD_DIR = "scad"
 STL_DIR = "stl"
 DEP_DIR = "dependencies"
+DEPS_FILE = "deps.json"
 
 PROPERTIES_FILE = "buildscad.properties"
 DEFAULT_MAIN_FILE = "main.scad"
@@ -45,7 +46,7 @@ def get_project_root() -> Path:
     root = Path.cwd()
     if not root.joinpath(PROPERTIES_FILE).exists():
         raise FileNotFoundError(
-            f"buildscad.properties not found in {root}. Run 'buildscad init' first."
+            f"{PROPERTIES_FILE} not found in {root}. Run 'buildscad init' first."
         )
     return root
 
@@ -54,7 +55,7 @@ def load_properties(project_root: Path | None = None) -> dict[str, str]:
     root = project_root or get_project_root()
     props_path = root.joinpath(PROPERTIES_FILE)
     if not props_path.exists():
-        raise FileNotFoundError(f"buildscad.properties not found in {root}")
+        raise FileNotFoundError(f"{PROPERTIES_FILE} not found in {root}")
 
     props = Properties()
     with open(props_path, "rb") as f:
@@ -92,17 +93,18 @@ def get_assemblies(project_root: Path | None = None) -> list[str]:
 
 def load_deps(project_root: Path | None = None) -> list[dict]:
     root = project_root or get_project_root()
-    deps_path = root.joinpath("deps.json")
+    deps_path = root.joinpath(f"{DEPS_FILE}")
+
     if not deps_path.exists():
         raise FileNotFoundError(
-            f"deps.json not found in {root} or any parent directory"
+            f"{DEPS_FILE} not found in {root} or any parent directory"
         )
 
     with open(deps_path) as f:
         deps = json.load(f)
 
     if not isinstance(deps, list):
-        raise ValueError("deps.json must contain a JSON array")
+        raise ValueError(f"{DEPS_FILE} must contain a JSON array")
 
     return deps
 
@@ -128,6 +130,6 @@ def write_properties(
 
 def write_deps(deps: list[dict], project_root: Path | None = None) -> None:
     root = project_root or Path.cwd()
-    deps_path = root / "deps.json"
+    deps_path = root.joinpath(DEPS_FILE)
     with open(deps_path, "w") as f:
         json.dump(deps, f, indent=2)

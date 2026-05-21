@@ -26,19 +26,6 @@ def test_init_creates_files(project_root):
         assert Path(".gitignore").exists()
 
 
-def test_init_output_messages(project_root, log_output):
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=str(project_root)):
-        runner.invoke(cli, ["init"])
-        output = log_output.getvalue()
-        assert "Created buildscad.properties" in output
-        assert "Created deps.json" in output
-        assert "Created scad/main.scad" in output
-        assert "Created stl/" in output
-        assert "Created .gitignore" in output
-        assert "Project initialized successfully." in output
-
-
 def test_init_idempotent(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
@@ -131,13 +118,16 @@ def test_clean(project_root, log_output):
         deps_dir = Path("dependencies")
         deps_dir.mkdir()
         deps_dir.joinpath("fake:dep:v1").mkdir()
+        stl_dir = Path("stl")
+        stl_dir.joinpath("test.stl").write_text("fake stl")
         assert deps_dir.exists()
+        assert stl_dir.joinpath("test.stl").exists()
 
         runner.invoke(cli, ["clean"])
         output = log_output.getvalue()
-        assert deps_dir.exists()
-        assert len(list(deps_dir.iterdir())) == 0
         assert "Dependencies cleaned." in output
+        assert "Finished cleaning built stl assemblies." in output
+        assert not stl_dir.joinpath("test.stl").exists()
 
 
 def test_clean_no_deps_folder(project_root, log_output):
@@ -147,3 +137,12 @@ def test_clean_no_deps_folder(project_root, log_output):
         runner.invoke(cli, ["clean"])
         output = log_output.getvalue()
         assert "Dependencies cleaned." in output
+
+
+def test_clean_no_stl_files(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        runner.invoke(cli, ["clean"])
+        output = log_output.getvalue()
+        assert "Finished cleaning built stl assemblies." in output

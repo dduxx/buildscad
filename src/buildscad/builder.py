@@ -3,6 +3,9 @@ from pathlib import Path
 
 from buildscad.config import get_openscad_path
 from buildscad.dependencies import get_dependency_paths
+import logging
+
+logger = logging.getLogger("buildscad")
 
 
 def build_assembly(
@@ -10,14 +13,13 @@ def build_assembly(
     output_path: str,
     project_root: Path,
 ) -> None:
+    logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
     dep_paths = get_dependency_paths(project_root)
 
-    cmd = [openscad, "-o", output_path]
-    for dep_path in dep_paths:
-        cmd.extend(["-I", dep_path])
-    cmd.append(input_path)
+    cmd = [openscad, "-o", output_path, input_path]
 
+    logger.debug(f"Finished building assembly {input_path} -> {output_path}")
     subprocess.run(cmd, check=True, cwd=str(project_root))
 
 
