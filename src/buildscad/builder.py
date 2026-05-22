@@ -13,6 +13,7 @@ def build_assembly(
     input_path: str,
     output_path: str,
     project_root: Path,
+    output_type: OutputType,
 ) -> None:
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
@@ -22,10 +23,12 @@ def build_assembly(
         "--viewall",
         "--colorscheme",
         get_colorscheme(project_root).value,
-        "-o",
-        output_path,
-        input_path,
     ]
+
+    if output_type == OutputType.PNG:
+        cmd.append("--render")
+
+    cmd.extend(["-o", output_path, input_path])
 
     logger.debug(f"Finished building assembly {input_path} -> {output_path}")
     subprocess.run(cmd, check=True, cwd=str(project_root))
@@ -43,7 +46,7 @@ def build_all(
         output_name = input_path.stem + "." + output_type.value
         output_path = output_dir.joinpath(output_name)
 
-        build_assembly(str(input_path), str(output_path), project_root)
+        build_assembly(str(input_path), str(output_path), project_root, output_type)
         built.append((str(input_path), str(output_path)))
 
     return built
