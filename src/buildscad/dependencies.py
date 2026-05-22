@@ -45,10 +45,7 @@ def get_dependencies_dir(project_root: Path) -> Path:
 
 
 def is_buildscad_project(dep_path: Path) -> bool:
-    return (
-        dep_path.joinpath(PROPERTIES_FILE).exists()
-        and dep_path.joinpath(DEPS_FILE).exists()
-    )
+    return dep_path.joinpath(PROPERTIES_FILE).exists() and dep_path.joinpath(DEPS_FILE).exists()
 
 
 def _create_symlink(dep_path: Path, project_root: Path) -> None:
@@ -70,9 +67,7 @@ def _create_symlink(dep_path: Path, project_root: Path) -> None:
         logger.debug(f"Symlinked {item.name} -> {relative_path}")
 
 
-def install_dependency(
-    url: str, ref: str, project_root: Path, ignore_cache: bool = False
-) -> Path:
+def install_dependency(url: str, ref: str, project_root: Path, ignore_cache: bool = False) -> Path:
     logger.debug(f"Installing dependency {url} : {ref}")
     deps_dir = get_dependencies_dir(project_root)
     dep_name = get_dependency_dir_name(url, ref)

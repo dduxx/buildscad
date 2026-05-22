@@ -107,9 +107,7 @@ def init(name):
 
 
 @cli.command()
-@click.option(
-    "--ignore-cache", is_flag=True, help="Force re-download of existing dependencies."
-)
+@click.option("--ignore-cache", is_flag=True, help="Force re-download of existing dependencies.")
 def pull(ignore_cache):
     """Install project dependencies."""
 
