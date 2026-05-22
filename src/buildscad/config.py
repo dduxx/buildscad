@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from jproperties import Properties
-from buildscad.types import OutputType
+from buildscad.types import OutputType, ColorScheme
 
 PROP_PROJECT = "BUILDSCAD_PROJECT"
 PROP_VERSION = "BUILDSCAD_VERSION"
@@ -10,9 +10,15 @@ PROP_ASSEMBLIES = "BUILDSCAD_ASSEMBLIES"
 PROP_LOG_LEVEL = "BUILDSCAD_LOG_LEVEL"
 PROP_OPENSCAD_PATH = "BUILDSCAD_OPENSCAD_PATH"
 PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
+PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
-OPTIONAL_PROPS = [PROP_LOG_LEVEL, PROP_OPENSCAD_PATH, PROP_OUTPUT_FORMAT]
+OPTIONAL_PROPS = [
+    PROP_LOG_LEVEL,
+    PROP_OPENSCAD_PATH,
+    PROP_OUTPUT_FORMAT,
+    PROP_OPENSCAD_COLORSCHEME,
+]
 
 DEFAULT_VALUES = {
     PROP_PROJECT: "my-project",
@@ -22,6 +28,7 @@ DEFAULT_VALUES = {
     PROP_LOG_LEVEL: "INFO",
     PROP_OPENSCAD_PATH: "/usr/bin/openscad",
     PROP_OUTPUT_FORMAT: "stl",
+    PROP_OPENSCAD_COLORSCHEME: "Cornfield",
 }
 
 SCAD_DIR = "scad"
@@ -119,6 +126,19 @@ def get_output_format(
             )
 
     return OutputType.STL
+
+
+def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
+    colorscheme = get_property(PROP_OPENSCAD_COLORSCHEME, project_root=project_root)
+    if not colorscheme:
+        return ColorScheme.CORNFIELD
+    try:
+        return ColorScheme(colorscheme)
+    except ValueError:
+        valid = ", ".join([c.value for c in ColorScheme])
+        raise ValueError(
+            f"Invalid {PROP_OPENSCAD_COLORSCHEME} value '{colorscheme}'. Valid schemes: {valid}"
+        )
 
 
 def get_assemblies(project_root: Path | None = None) -> list[str]:
