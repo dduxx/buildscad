@@ -2,7 +2,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from buildscad.cli import cli, init, pull, clean
+from buildscad.cli import cli, init, pull, clean, build
 from buildscad.config import (
     PROP_PROJECT,
     PROP_VERSION,
@@ -10,7 +10,9 @@ from buildscad.config import (
     PROP_ASSEMBLIES,
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
+    PROP_OUTPUT_FORMAT,
     DEFAULT_VALUES,
+    BUILD_DIR,
 )
 
 
@@ -22,7 +24,6 @@ def test_init_creates_files(project_root):
         assert Path("buildscad.properties").exists()
         assert Path("deps.json").exists()
         assert Path("scad/main.scad").exists()
-        assert Path("stl").is_dir()
         assert Path(".gitignore").exists()
 
 
@@ -42,7 +43,7 @@ def test_init_gitignore_content(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         content = Path(".gitignore").read_text()
-        assert "stl/" in content
+        assert "build/" in content
         assert "dependencies/" in content
         assert "*.swp" in content
         assert "*.swo" in content
@@ -76,7 +77,6 @@ def test_init_with_name_argument(tmp_dir):
         assert project_dir.joinpath("buildscad.properties").exists()
         assert project_dir.joinpath("deps.json").exists()
         assert project_dir.joinpath("scad/main.scad").exists()
-        assert project_dir.joinpath("stl").is_dir()
         assert project_dir.joinpath(".gitignore").exists()
         content = project_dir.joinpath("buildscad.properties").read_text()
         assert f"{PROP_PROJECT}=my-custom-project" in content
@@ -118,34 +118,36 @@ def test_clean(project_root, log_output):
         deps_dir = Path("dependencies")
         deps_dir.mkdir()
         deps_dir.joinpath("fake:dep:v1").mkdir()
-        stl_dir = Path("stl")
-        stl_dir.joinpath("test.stl").write_text("fake stl")
+        build_dir = Path("build")
+        build_dir.joinpath("stl").mkdir(parents=True)
+        build_dir.joinpath("stl", "test.stl").write_text("fake stl")
         assert deps_dir.exists()
-        assert stl_dir.joinpath("test.stl").exists()
+        assert build_dir.joinpath("stl", "test.stl").exists()
 
         runner.invoke(cli, ["clean"])
         output = log_output.getvalue()
         assert "Dependencies cleaned." in output
-        assert "Finished cleaning built stl assemblies." in output
-        assert not stl_dir.joinpath("test.stl").exists()
+        assert "Finished cleaning build output." in output
+        assert not build_dir.joinpath("stl", "test.stl").exists()
 
 
-def test_clean_keeps_stl_when_flag_set(project_root, log_output):
+def test_clean_keeps_build_when_flag_set(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         deps_dir = Path("dependencies")
         deps_dir.mkdir()
         deps_dir.joinpath("fake:dep:v1").mkdir()
-        stl_dir = Path("stl")
-        stl_dir.joinpath("test.stl").write_text("fake stl")
+        build_dir = Path("build")
+        build_dir.joinpath("stl").mkdir(parents=True)
+        build_dir.joinpath("stl", "test.stl").write_text("fake stl")
 
-        runner.invoke(cli, ["clean", "--keep-stl"])
+        runner.invoke(cli, ["clean", "--keep-build"])
         output = log_output.getvalue()
         assert "Dependencies cleaned." in output
-        assert "Keeping STL assemblies." in output
-        assert "Finished cleaning built stl assemblies." not in output
-        assert stl_dir.joinpath("test.stl").exists()
+        assert "Keeping build output." in output
+        assert "Finished cleaning build output." not in output
+        assert build_dir.joinpath("stl", "test.stl").exists()
 
 
 def test_clean_no_deps_folder(project_root, log_output):
@@ -157,10 +159,62 @@ def test_clean_no_deps_folder(project_root, log_output):
         assert "Dependencies cleaned." in output
 
 
-def test_clean_no_stl_files(project_root, log_output):
+def test_clean_no_build_folder(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["clean"])
         output = log_output.getvalue()
-        assert "Finished cleaning built stl assemblies." in output
+        assert "Finished cleaning build output." in output
+
+
+def test_build_invalid_type(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["build", "--type", "invalid"])
+        assert result.exit_code != 0
+        assert "not a valid output type" in str(result.exception)
+
+
+from unittest.mock import patch
+
+
+def test_build_valid_type(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        with patch("buildscad.builder.subprocess.run"):
+            result = runner.invoke(cli, ["build", "--type", "3mf"])
+        assert result.exit_code == 0
+        assert "3mf" in result.output
+
+
+def test_build_uses_property_format_when_no_type_flag(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
+        )
+        with patch("buildscad.builder.subprocess.run"):
+            result = runner.invoke(cli, ["build"])
+        assert result.exit_code == 0
+        assert "3mf" in result.output
+        assert Path("build/3mf/main.3mf").parent.exists()
+
+
+def test_build_type_flag_overrides_property(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
+        )
+        with patch("buildscad.builder.subprocess.run"):
+            result = runner.invoke(cli, ["build", "--type", "amf"])
+        assert result.exit_code == 0
+        assert "amf" in result.output
+        assert "3mf" not in result.output

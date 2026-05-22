@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from jproperties import Properties
+from buildscad.types import OutputType
 
 PROP_PROJECT = "BUILDSCAD_PROJECT"
 PROP_VERSION = "BUILDSCAD_VERSION"
@@ -8,9 +9,10 @@ PROP_AUTHOR = "BUILDSCAD_AUTHOR"
 PROP_ASSEMBLIES = "BUILDSCAD_ASSEMBLIES"
 PROP_LOG_LEVEL = "BUILDSCAD_LOG_LEVEL"
 PROP_OPENSCAD_PATH = "BUILDSCAD_OPENSCAD_PATH"
+PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
-OPTIONAL_PROPS = [PROP_LOG_LEVEL, PROP_OPENSCAD_PATH]
+OPTIONAL_PROPS = [PROP_LOG_LEVEL, PROP_OPENSCAD_PATH, PROP_OUTPUT_FORMAT]
 
 DEFAULT_VALUES = {
     PROP_PROJECT: "my-project",
@@ -19,10 +21,11 @@ DEFAULT_VALUES = {
     PROP_ASSEMBLIES: "scad/main.scad",
     PROP_LOG_LEVEL: "INFO",
     PROP_OPENSCAD_PATH: "/usr/bin/openscad",
+    PROP_OUTPUT_FORMAT: "stl",
 }
 
 SCAD_DIR = "scad"
-STL_DIR = "stl"
+BUILD_DIR = "build"
 DEP_DIR = "dependencies"
 DEPS_FILE = "deps.json"
 
@@ -32,7 +35,7 @@ GITIGNORE_FILE = ".gitignore"
 
 DEFAULT_GITIGNORE_CONTENTS = """
 # buildscad
-stl/
+build/
 dependencies/
 
 # Python
@@ -91,6 +94,31 @@ def get_openscad_path(project_root: Path | None = None) -> str:
 
 def get_log_level(project_root: Path | None = None) -> str | None:
     return get_property(PROP_LOG_LEVEL, project_root=project_root)
+
+
+def get_output_format(
+    cli_type: str | None = None, project_root: Path | None = None
+) -> OutputType:
+    if cli_type is not None:
+        try:
+            return OutputType(cli_type)
+        except ValueError:
+            valid = ", ".join([t.value for t in OutputType])
+            raise ValueError(
+                f"'{cli_type}' is not a valid output type. Valid types: {valid}"
+            )
+
+    fmt = get_property(PROP_OUTPUT_FORMAT, project_root=project_root)
+    if fmt:
+        try:
+            return OutputType(fmt)
+        except ValueError:
+            valid = ", ".join([t.value for t in OutputType])
+            raise ValueError(
+                f"Invalid {PROP_OUTPUT_FORMAT} value '{fmt}'. Valid types: {valid}"
+            )
+
+    return OutputType.STL
 
 
 def get_assemblies(project_root: Path | None = None) -> list[str]:
