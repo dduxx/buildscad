@@ -17,7 +17,7 @@ def build_assembly(
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
 
-    cmd = [openscad, "-o", output_path, input_path]
+    cmd = [openscad, "--viewall", "-o", output_path, input_path]
 
     logger.debug(f"Finished building assembly {input_path} -> {output_path}")
     subprocess.run(cmd, check=True, cwd=str(project_root))
