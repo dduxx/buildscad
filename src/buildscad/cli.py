@@ -3,6 +3,7 @@ import click
 from pathlib import Path
 from copy import deepcopy
 from datetime import datetime
+import shutil
 from buildscad.config import (
     write_properties,
     write_deps,
@@ -10,12 +11,13 @@ from buildscad.config import (
     get_project_root,
     get_assemblies,
     get_log_level,
+    get_output_format,
     DEFAULT_VALUES,
     PROP_PROJECT,
     PROPERTIES_FILE,
     DEFAULT_MAIN_FILE,
     SCAD_DIR,
-    STL_DIR,
+    BUILD_DIR,
     GITIGNORE_FILE,
     DEFAULT_GITIGNORE_CONTENTS,
     DEPS_FILE,
@@ -97,10 +99,6 @@ def init(name):
     scad_dir.joinpath(DEFAULT_MAIN_FILE).write_text("")
     logger.debug(f"Created {SCAD_DIR}/{DEFAULT_MAIN_FILE}")
 
-    stl_dir = project_root.joinpath(STL_DIR)
-    stl_dir.mkdir(parents=True, exist_ok=True)
-    logger.debug(f"Created {STL_DIR}/")
-
     gitignore = project_root.joinpath(GITIGNORE_FILE)
     gitignore.write_text(DEFAULT_GITIGNORE_CONTENTS)
     logger.debug(f"Created {GITIGNORE_FILE}")
@@ -128,30 +126,38 @@ def pull(ignore_cache):
 
 
 @cli.command()
-@click.option("--keep-stl", is_flag=True, help="Skip deleting STL assemblies.")
-def clean(keep_stl):
-    """Clean the project dependencies and STL output files."""
+@click.option("--keep-build", is_flag=True, help="Skip deleting build output files.")
+def clean(keep_build):
+    """Clean the project dependencies and build output files."""
 
     logger.info("Cleaning dependencies.")
     project_root = get_project_root()
     clean_dependencies(project_root)
     logger.info("Dependencies cleaned.")
 
-    if keep_stl:
-        logger.info("Keeping STL assemblies.")
+    if keep_build:
+        logger.info("Keeping build output.")
         return
 
-    logger.info("Cleaning built stl assemblies.")
-    stl_dir = project_root.joinpath(STL_DIR)
-    if stl_dir.exists():
-        for stl_file in stl_dir.glob("*.stl"):
-            stl_file.unlink()
-    logger.info("Finished cleaning built stl assemblies.")
+    logger.info("Cleaning build output.")
+    build_dir = project_root.joinpath(BUILD_DIR)
+    if build_dir.exists():
+        for item in build_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+    logger.info("Finished cleaning build output.")
 
 
 @cli.command()
-def build():
-    """Build assemblies into STL files."""
+@click.option(
+    "-t",
+    "--type",
+    "output_type",
+    default=None,
+    help="Output format type. Overrides BUILDSCAD_OUTPUT_FORMAT property. Valid types: stl, 3mf, amf, off, dxf, svg, png, csg, echo, ast",
+)
+def build(output_type):
+    """Build assemblies into output files."""
 
     project_root = get_project_root()
 
@@ -168,8 +174,10 @@ def build():
         logger.warning("No assemblies configured.")
         return
 
-    logger.info(f"Building {len(assemblies)} assemblies...")
-    build_all(assemblies, project_root)
+    format = get_output_format(output_type, project_root)
+
+    logger.info(f"Building {len(assemblies)} assemblies as {format.value}...")
+    build_all(assemblies, project_root, format)
 
     logger.info(f"Built {len(assemblies)} assemblies.")
 

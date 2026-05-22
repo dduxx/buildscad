@@ -10,14 +10,17 @@ from buildscad.config import (
     write_properties,
     write_deps,
     get_project_root,
+    get_output_format,
     PROP_PROJECT,
     PROP_VERSION,
     PROP_AUTHOR,
     PROP_ASSEMBLIES,
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
+    PROP_OUTPUT_FORMAT,
     DEFAULT_VALUES,
 )
+from buildscad.types import OutputType
 
 
 def test_load_properties(initialized_project):
@@ -124,3 +127,37 @@ def test_load_properties_not_found(project_root):
 def test_load_deps_not_found(project_root):
     with pytest.raises(FileNotFoundError, match="deps.json not found"):
         load_deps(project_root)
+
+
+def test_get_output_format_default(initialized_project):
+    fmt = get_output_format(project_root=initialized_project)
+    assert fmt == OutputType.STL
+
+
+def test_get_output_format_from_property(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=3mf\n"
+    )
+    fmt = get_output_format(project_root=project_root)
+    assert fmt == OutputType.THREE_MF
+
+
+def test_get_output_format_cli_takes_precedence(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=3mf\n"
+    )
+    fmt = get_output_format(cli_type="amf", project_root=project_root)
+    assert fmt == OutputType.AMF
+
+
+def test_get_output_format_invalid_cli(project_root):
+    with pytest.raises(ValueError, match="not a valid output type"):
+        get_output_format(cli_type="invalid")
+
+
+def test_get_output_format_invalid_property(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=badformat\n"
+    )
+    with pytest.raises(ValueError, match="Invalid BUILDSCAD_OUTPUT_FORMAT value"):
+        get_output_format(project_root=project_root)

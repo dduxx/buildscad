@@ -1,8 +1,9 @@
 import subprocess
 from pathlib import Path
 
-from buildscad.config import get_openscad_path
+from buildscad.config import get_openscad_path, BUILD_DIR
 from buildscad.dependencies import get_dependency_paths
+from buildscad.types import OutputType
 import logging
 
 logger = logging.getLogger("buildscad")
@@ -15,7 +16,6 @@ def build_assembly(
 ) -> None:
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
-    dep_paths = get_dependency_paths(project_root)
 
     cmd = [openscad, "-o", output_path, input_path]
 
@@ -23,15 +23,17 @@ def build_assembly(
     subprocess.run(cmd, check=True, cwd=str(project_root))
 
 
-def build_all(assemblies: list[str], project_root: Path) -> list[tuple[str, str]]:
-    stl_dir = project_root.joinpath("stl")
-    stl_dir.mkdir(parents=True, exist_ok=True)
+def build_all(
+    assemblies: list[str], project_root: Path, output_type: OutputType
+) -> list[tuple[str, str]]:
+    output_dir = project_root.joinpath(BUILD_DIR, output_type.value)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     built = []
     for assembly in assemblies:
         input_path = Path(assembly)
-        output_name = input_path.stem + ".stl"
-        output_path = stl_dir.joinpath(output_name)
+        output_name = input_path.stem + "." + output_type.value
+        output_path = output_dir.joinpath(output_name)
 
         build_assembly(str(input_path), str(output_path), project_root)
         built.append((str(input_path), str(output_path)))
