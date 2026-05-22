@@ -140,6 +140,9 @@ pip install -e ".[dev]"
 
 # Run tests
 pytest tests/ -v
+
+# Format code
+black src/ tests/
 ```
 
 ### Running the CLI during development
