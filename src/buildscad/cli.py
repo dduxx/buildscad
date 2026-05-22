@@ -11,7 +11,7 @@ from buildscad.config import (
     get_project_root,
     get_assemblies,
     get_log_level,
-    get_output_format,
+    get_output_formats,
     DEFAULT_VALUES,
     PROP_PROJECT,
     PROPERTIES_FILE,
@@ -152,11 +152,12 @@ def clean(keep_build):
 @click.option(
     "-t",
     "--type",
-    "output_type",
+    "output_types",
     default=None,
-    help="Output format type. Overrides BUILDSCAD_OUTPUT_FORMAT property. Valid types: stl, 3mf, amf, off, dxf, svg, png, csg, echo, ast",
+    multiple=True,
+    help="Output format type. Overrides BUILDSCAD_OUTPUT_FORMAT property. Can be specified multiple times. Valid types: stl, 3mf, amf, off, dxf, svg, png, csg, echo, ast",
 )
-def build(output_type):
+def build(output_types):
     """Build assemblies into output files."""
 
     project_root = get_project_root()
@@ -174,12 +175,12 @@ def build(output_type):
         logger.warning("No assemblies configured.")
         return
 
-    format = get_output_format(output_type, project_root)
+    formats = get_output_formats(output_types, project_root)
 
-    logger.info(f"Building {len(assemblies)} assemblies as {format.value}...")
-    build_all(assemblies, project_root, format)
-
-    logger.info(f"Built {len(assemblies)} assemblies.")
+    for format in formats:
+        logger.info(f"Building {len(assemblies)} assemblies as {format.value}...")
+        build_all(assemblies, project_root, format)
+        logger.info(f"Built {len(assemblies)} assemblies as {format.value}.")
 
 
 if __name__ == "__main__":

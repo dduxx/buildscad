@@ -10,7 +10,7 @@ from buildscad.config import (
     write_properties,
     write_deps,
     get_project_root,
-    get_output_format,
+    get_output_formats,
     PROP_PROJECT,
     PROP_VERSION,
     PROP_AUTHOR,
@@ -129,35 +129,51 @@ def test_load_deps_not_found(project_root):
         load_deps(project_root)
 
 
-def test_get_output_format_default(initialized_project):
-    fmt = get_output_format(project_root=initialized_project)
-    assert fmt == OutputType.STL
+def test_get_output_formats_default(initialized_project):
+    formats = get_output_formats(project_root=initialized_project)
+    assert formats == [OutputType.STL]
 
 
-def test_get_output_format_from_property(project_root):
+def test_get_output_formats_from_property(project_root):
     project_root.joinpath("buildscad.properties").write_text(
         f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=3mf\n"
     )
-    fmt = get_output_format(project_root=project_root)
-    assert fmt == OutputType.THREE_MF
+    formats = get_output_formats(project_root=project_root)
+    assert formats == [OutputType.THREE_MF]
 
 
-def test_get_output_format_cli_takes_precedence(project_root):
+def test_get_output_formats_multiple(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=stl,png\n"
+    )
+    formats = get_output_formats(project_root=project_root)
+    assert formats == [OutputType.STL, OutputType.PNG]
+
+
+def test_get_output_formats_cli_takes_precedence(project_root):
     project_root.joinpath("buildscad.properties").write_text(
         f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=3mf\n"
     )
-    fmt = get_output_format(cli_type="amf", project_root=project_root)
-    assert fmt == OutputType.AMF
+    formats = get_output_formats(cli_types=("amf",), project_root=project_root)
+    assert formats == [OutputType.AMF]
 
 
-def test_get_output_format_invalid_cli(project_root):
+def test_get_output_formats_cli_multiple(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=3mf\n"
+    )
+    formats = get_output_formats(cli_types=("stl", "png"), project_root=project_root)
+    assert formats == [OutputType.STL, OutputType.PNG]
+
+
+def test_get_output_formats_invalid_cli(project_root):
     with pytest.raises(ValueError, match="not a valid output type"):
-        get_output_format(cli_type="invalid")
+        get_output_formats(cli_types=("invalid",))
 
 
-def test_get_output_format_invalid_property(project_root):
+def test_get_output_formats_invalid_property(project_root):
     project_root.joinpath("buildscad.properties").write_text(
         f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=badformat\n"
     )
-    with pytest.raises(ValueError, match="Invalid BUILDSCAD_OUTPUT_FORMAT value"):
-        get_output_format(project_root=project_root)
+    with pytest.raises(ValueError, match="'badformat' is not a valid output type"):
+        get_output_formats(project_root=project_root)
