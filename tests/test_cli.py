@@ -190,6 +190,17 @@ def test_build_valid_type(project_root):
         assert "3mf" in result.output
 
 
+def test_build_multiple_types(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        with patch("buildscad.builder.subprocess.run"):
+            result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
+        assert result.exit_code == 0
+        assert "stl" in result.output
+        assert "png" in result.output
+
+
 def test_build_uses_property_format_when_no_type_flag(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
@@ -217,4 +228,20 @@ def test_build_type_flag_overrides_property(project_root):
             result = runner.invoke(cli, ["build", "--type", "amf"])
         assert result.exit_code == 0
         assert "amf" in result.output
+        assert "3mf" not in result.output
+
+
+def test_build_multiple_type_flags_override_property(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
+        )
+        with patch("buildscad.builder.subprocess.run"):
+            result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
+        assert result.exit_code == 0
+        assert "stl" in result.output
+        assert "png" in result.output
         assert "3mf" not in result.output

@@ -103,29 +103,25 @@ def get_log_level(project_root: Path | None = None) -> str | None:
     return get_property(PROP_LOG_LEVEL, project_root=project_root)
 
 
-def get_output_format(
-    cli_type: str | None = None, project_root: Path | None = None
-) -> OutputType:
-    if cli_type is not None:
-        try:
-            return OutputType(cli_type)
-        except ValueError:
-            valid = ", ".join([t.value for t in OutputType])
-            raise ValueError(
-                f"'{cli_type}' is not a valid output type. Valid types: {valid}"
-            )
+def get_output_formats(
+    cli_types: tuple[str, ...] | None = None, project_root: Path | None = None
+) -> list[OutputType]:
+    if cli_types:
+        return [_parse_output_type(t) for t in cli_types]
 
-    fmt = get_property(PROP_OUTPUT_FORMAT, project_root=project_root)
-    if fmt:
-        try:
-            return OutputType(fmt)
-        except ValueError:
-            valid = ", ".join([t.value for t in OutputType])
-            raise ValueError(
-                f"Invalid {PROP_OUTPUT_FORMAT} value '{fmt}'. Valid types: {valid}"
-            )
+    format = get_property(PROP_OUTPUT_FORMAT, project_root=project_root)
+    if format:
+        return [_parse_output_type(t.strip()) for t in format.split(",") if t.strip()]
 
-    return OutputType.STL
+    return [OutputType.STL]
+
+
+def _parse_output_type(value: str) -> OutputType:
+    try:
+        return OutputType(value)
+    except ValueError:
+        valid = ", ".join([t.value for t in OutputType])
+        raise ValueError(f"'{value}' is not a valid output type. Valid types: {valid}")
 
 
 def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
