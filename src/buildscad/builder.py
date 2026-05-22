@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from buildscad.config import get_openscad_path, BUILD_DIR
+from buildscad.config import get_openscad_path, BUILD_DIR, get_colorscheme
 from buildscad.dependencies import get_dependency_paths
 from buildscad.types import OutputType
 import logging
@@ -17,7 +17,15 @@ def build_assembly(
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
 
-    cmd = [openscad, "--viewall", "-o", output_path, input_path]
+    cmd = [
+        openscad,
+        "--viewall",
+        "--colorscheme",
+        get_colorscheme(project_root).value,
+        "-o",
+        output_path,
+        input_path,
+    ]
 
     logger.debug(f"Finished building assembly {input_path} -> {output_path}")
     subprocess.run(cmd, check=True, cwd=str(project_root))
