@@ -165,9 +165,7 @@ def load_deps(project_root: Path | None = None) -> list[dict]:
     return deps
 
 
-def write_properties(
-    properties: dict[str, str], project_root: Path | None = None
-) -> None:
+def write_properties(properties: dict[str, str], project_root: Path | None = None) -> None:
     if project_root is None:
         project_root = get_project_root()
 

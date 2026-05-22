@@ -15,7 +15,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "black>=24.0",
 ]
 
 [project.scripts]
 buildscad = "buildscad.cli:cli"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]

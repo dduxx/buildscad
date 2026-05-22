@@ -39,7 +39,9 @@ def test_load_properties_skips_comments(initialized_project):
 
 def test_get_property(initialized_project):
     assert get_property(PROP_PROJECT, project_root=initialized_project) == initialized_project.name
-    assert get_property(PROP_VERSION, project_root=initialized_project) == DEFAULT_VALUES[PROP_VERSION]
+    assert (
+        get_property(PROP_VERSION, project_root=initialized_project) == DEFAULT_VALUES[PROP_VERSION]
+    )
 
 
 def test_get_property_default(project_root):
@@ -105,6 +107,7 @@ def test_write_deps(project_root):
 
 def test_get_project_root(initialized_project):
     import os
+
     original_cwd = os.getcwd()
     os.chdir(initialized_project)
     try:

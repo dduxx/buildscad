@@ -206,9 +206,7 @@ def test_build_uses_property_format_when_no_type_flag(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         props = Path("buildscad.properties").read_text()
-        Path("buildscad.properties").write_text(
-            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
-        )
+        Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
             result = runner.invoke(cli, ["build"])
         assert result.exit_code == 0
@@ -221,9 +219,7 @@ def test_build_type_flag_overrides_property(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         props = Path("buildscad.properties").read_text()
-        Path("buildscad.properties").write_text(
-            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
-        )
+        Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
             result = runner.invoke(cli, ["build", "--type", "amf"])
         assert result.exit_code == 0
@@ -236,9 +232,7 @@ def test_build_multiple_type_flags_override_property(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         props = Path("buildscad.properties").read_text()
-        Path("buildscad.properties").write_text(
-            props + f"{PROP_OUTPUT_FORMAT}=3mf\n"
-        )
+        Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
             result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
         assert result.exit_code == 0
