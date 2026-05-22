@@ -47,7 +47,3 @@ Thumbs.db
 .coverage
 htmlcov/
 .tox/
-
-# buildscad project
-stl/
-dependencies/
