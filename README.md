@@ -68,6 +68,7 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 | `BUILDSCAD_LOG_LEVEL` | No | — | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `BUILDSCAD_OPENSCAD_PATH` | No | `openscad` | Path to OpenSCAD executable |
 | `BUILDSCAD_OUTPUT_FORMAT` | No | `stl` | Default output format: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast` |
+| `BUILDSCAD_OPENSCAD_COLORSCHEME` | No | `Cornfield` | OpenSCAD color scheme: `Cornfield`, `Sunset`, `Metallic`, `Starlight`, `BeforeDawn`, `Nature`, `DeepOcean`, `Solarized` |
 
 Optional properties are commented out by default. Uncomment them to use.
 
