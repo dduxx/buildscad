@@ -211,7 +211,7 @@ def test_build_uses_property_format_when_no_type_flag(project_root):
             result = runner.invoke(cli, ["build"])
         assert result.exit_code == 0
         assert "3mf" in result.output
-        assert Path("build/3mf/main.3mf").parent.exists()
+        assert Path("build/3mf/scad/main.3mf").parent.exists()
 
 
 def test_build_type_flag_overrides_property(project_root):
