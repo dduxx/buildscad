@@ -11,6 +11,10 @@ from buildscad.config import (
     write_deps,
     get_project_root,
     get_output_formats,
+    _parse_assembly,
+    _unescape_value,
+    _sanitize_filename,
+    Assembly,
     PROP_PROJECT,
     PROP_VERSION,
     PROP_AUTHOR,
@@ -52,7 +56,8 @@ def test_get_property_default(project_root):
 
 def test_get_assemblies_single(initialized_project):
     assemblies = get_assemblies(project_root=initialized_project)
-    assert assemblies == ["scad/main.scad"]
+    assert len(assemblies) == 1
+    assert assemblies[0] == Assembly(path="scad/main.scad", variables={})
 
 
 def test_get_assemblies_multiple(project_root):
@@ -60,7 +65,104 @@ def test_get_assemblies_multiple(project_root):
         f"{PROP_ASSEMBLIES}=scad/main.scad,scad/bracket.scad\n"
     )
     assemblies = get_assemblies(project_root=project_root)
-    assert assemblies == ["scad/main.scad", "scad/bracket.scad"]
+    assert assemblies == [
+        Assembly(path="scad/main.scad", variables={}),
+        Assembly(path="scad/bracket.scad", variables={}),
+    ]
+
+
+def test_get_assemblies_with_variables(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_ASSEMBLIES}=scad/main.scad[threads=metric;diameter=8],scad/bracket.scad\n"
+    )
+    assemblies = get_assemblies(project_root=project_root)
+    assert assemblies == [
+        Assembly(path="scad/main.scad", variables={"threads": "metric", "diameter": "8"}),
+        Assembly(path="scad/bracket.scad", variables={}),
+    ]
+
+
+def test_get_assemblies_empty_brackets(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_ASSEMBLIES}=scad/main.scad[]\n"
+    )
+    assemblies = get_assemblies(project_root=project_root)
+    assert assemblies == [Assembly(path="scad/main.scad", variables={})]
+
+
+def test_parse_assembly_no_brackets():
+    result = _parse_assembly("scad/main.scad")
+    assert result == Assembly(path="scad/main.scad", variables={})
+
+
+def test_parse_assembly_single_var():
+    result = _parse_assembly("scad/main.scad[threads=metric]")
+    assert result == Assembly(path="scad/main.scad", variables={"threads": "metric"})
+
+
+def test_parse_assembly_multiple_vars():
+    result = _parse_assembly("scad/main.scad[threads=metric;diameter=8;count=3]")
+    assert result == Assembly(
+        path="scad/main.scad",
+        variables={
+            "threads": "metric",
+            "diameter": "8",
+            "count": "3",
+        },
+    )
+
+
+def test_parse_assembly_escaped_semicolon():
+    result = _parse_assembly(r"scad/main.scad[path=C:\path\to\file;name=test\;special]")
+    assert result == Assembly(
+        path="scad/main.scad",
+        variables={
+            "path": r"C:\path\to\file",
+            "name": "test;special",
+        },
+    )
+
+
+def test_parse_assembly_escaped_equals():
+    result = _parse_assembly(r"scad/main.scad[expr=a\=b]")
+    assert result == Assembly(path="scad/main.scad", variables={"expr": "a=b"})
+
+
+def test_parse_assembly_escaped_backslash():
+    result = _parse_assembly(r"scad/main.scad[path=C:\\\\path]")
+    assert result == Assembly(path="scad/main.scad", variables={"path": r"C:\\path"})
+
+
+def test_parse_assembly_missing_closing_bracket():
+    with pytest.raises(ValueError, match="Missing closing bracket"):
+        _parse_assembly("scad/main.scad[var=value")
+
+
+def test_parse_assembly_chars_after_bracket():
+    with pytest.raises(ValueError, match="Unexpected characters after closing bracket"):
+        _parse_assembly("scad/main.scad[var=value]extra")
+
+
+def test_parse_assembly_empty_key():
+    with pytest.raises(ValueError, match="Empty variable key"):
+        _parse_assembly("scad/main.scad[=value]")
+
+
+def test_parse_assembly_no_equals_in_var():
+    with pytest.raises(ValueError, match="Invalid variable format"):
+        _parse_assembly("scad/main.scad[badvar]")
+
+
+def test_parse_assembly_empty_entry():
+    with pytest.raises(ValueError, match="Empty assembly entry"):
+        _parse_assembly("")
+
+
+def test_unescape_value():
+    assert _unescape_value(r"hello\;world") == "hello;world"
+    assert _unescape_value(r"a\=b") == "a=b"
+    assert _unescape_value(r"C:\\path") == r"C:\path"
+    assert _unescape_value(r"\\;\=") == r"\;="
 
 
 def test_load_deps(initialized_project):
@@ -180,3 +282,62 @@ def test_get_output_formats_invalid_property(project_root):
     )
     with pytest.raises(ValueError, match="'badformat' is not a valid output type"):
         get_output_formats(project_root=project_root)
+
+
+def test_sanitize_filename_basic():
+    assert _sanitize_filename("metric") == "metric"
+    assert _sanitize_filename("8") == "8"
+
+
+def test_sanitize_filename_replaces_spaces():
+    assert _sanitize_filename("hello world") == "hello_world"
+
+
+def test_sanitize_filename_replaces_slashes():
+    assert _sanitize_filename("C:/models") == "C_models"
+
+
+def test_sanitize_filename_replaces_special_chars():
+    assert _sanitize_filename("test@#$%value") == "test_value"
+
+
+def test_sanitize_filename_collapses_underscores():
+    assert _sanitize_filename("a___b") == "a_b"
+
+
+def test_sanitize_filename_strips_leading_trailing_underscores():
+    assert _sanitize_filename("_hello_") == "hello"
+
+
+def test_assembly_filename_suffix_no_variables():
+    assembly = Assembly(path="scad/main.scad", variables={})
+    assert assembly.get_filename_suffix() == ""
+
+
+def test_assembly_filename_suffix_single_variable():
+    assembly = Assembly(path="scad/main.scad", variables={"threads": "metric"})
+    assert assembly.get_filename_suffix() == "__threads_metric"
+
+
+def test_assembly_filename_suffix_multiple_variables():
+    assembly = Assembly(path="scad/main.scad", variables={"threads": "metric", "diameter": "8"})
+    assert assembly.get_filename_suffix() == "__threads_metric__diameter_8"
+
+
+def test_assembly_filename_suffix_sanitizes_values():
+    assembly = Assembly(path="scad/main.scad", variables={"path": "C:/models"})
+    assert assembly.get_filename_suffix() == "__path_C_models"
+
+
+def test_build_output_filename_with_variables(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_ASSEMBLIES}=scad/main.scad[threads=metric;diameter=8]\n"
+    )
+    assemblies = get_assemblies(project_root=project_root)
+    assert assemblies[0].get_filename_suffix() == "__threads_metric__diameter_8"
+
+
+def test_build_output_filename_no_variables(project_root):
+    project_root.joinpath("buildscad.properties").write_text(f"{PROP_ASSEMBLIES}=scad/main.scad\n")
+    assemblies = get_assemblies(project_root=project_root)
+    assert assemblies[0].get_filename_suffix() == ""

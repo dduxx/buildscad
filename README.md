@@ -64,7 +64,7 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 | `BUILDSCAD_PROJECT` | Yes | `my-project` | Project name |
 | `BUILDSCAD_VERSION` | Yes | `1.0.0` | Project version |
 | `BUILDSCAD_AUTHOR` | Yes | `me` | Project author |
-| `BUILDSCAD_ASSEMBLIES` | Yes | `scad/main.scad` | Comma-separated list of assembly files to build |
+| `BUILDSCAD_ASSEMBLIES` | Yes | `scad/main.scad` | Comma-separated list of assembly files to build. Each file may optionally specify OpenSCAD variables using `[key=value;key2=value2]` syntax. |
 | `BUILDSCAD_LOG_LEVEL` | No | — | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `BUILDSCAD_OPENSCAD_PATH` | No | `openscad` | Path to OpenSCAD executable |
 | `BUILDSCAD_OUTPUT_FORMAT` | No | `stl` | Default output format(s), comma-separated: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast` |
@@ -97,6 +97,34 @@ A JSON array of dependencies. Each entry specifies a GitHub URL and a git ref (b
 | `buildscad pull [--ignore-cache]` | Download dependencies from `deps.json` into `dependencies/`. `--ignore-cache` forces re-download of existing dependencies. |
 | `buildscad build [-t TYPE]` | Build all configured assemblies into output files in `build/<type>/`. Defaults to `stl`, or uses `BUILDSCAD_OUTPUT_FORMAT` if set. CLI `--type` takes precedence over the property. Automatically pulls dependencies first. Supported types: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast`. Multiple `--type` flags can be specified. |
 | `buildscad clean [--keep-build]` | Remove the `dependencies/` folder and all build output. `--keep-build` preserves build output. |
+
+## Assembly Variables
+
+You can pass OpenSCAD variables to individual assemblies using bracket syntax in `BUILDSCAD_ASSEMBLIES`:
+
+```properties
+BUILDSCAD_ASSEMBLIES=scad/main.scad[threads=metric;diameter=8],scad/bracket.scad
+```
+
+Variables are passed to OpenSCAD via the `-D` flag. Each assembly can have its own set of variables. Use `;` to separate multiple variables within the brackets.
+
+### Escaping
+
+If a value contains `;`, `=`, or `\`, escape them with a backslash:
+
+| Escape | Result |
+|--------|--------|
+| `\;` | `;` |
+| `\=` | `=` |
+| `\\` | `\` |
+
+Example with escaped characters:
+
+```properties
+BUILDSCAD_ASSEMBLIES=scad/main.scad[path=C\:\\models;name=part\;v2]
+```
+
+This passes `-D path=C:\models` and `-D name=part;v2` to OpenSCAD.
 
 ## Dependency Resolution
 
