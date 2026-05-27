@@ -44,7 +44,8 @@ def build_all(
     for assembly in assemblies:
         input_path = Path(assembly)
         output_name = input_path.stem + "." + output_type.value
-        output_path = output_dir.joinpath(output_name)
+        output_path = output_dir.joinpath(input_path.parent, output_name)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         build_assembly(str(input_path), str(output_path), project_root, output_type)
         built.append((str(input_path), str(output_path)))
