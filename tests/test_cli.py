@@ -239,3 +239,87 @@ def test_build_multiple_type_flags_override_property(project_root):
         assert "stl" in result.output
         assert "png" in result.output
         assert "3mf" not in result.output
+
+
+def test_build_with_assembly_variables(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_ASSEMBLIES}=scad/main.scad[threads=metric;diameter=8]\n"
+        )
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            result = runner.invoke(cli, ["build", "--type", "stl"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        cmd = captured_calls[0]
+        assert "-D" in cmd
+        threads_idx = cmd.index("-D")
+        assert cmd[threads_idx + 1] == "threads=metric"
+        diameter_idx = cmd.index("-D", threads_idx + 1)
+        assert cmd[diameter_idx + 1] == "diameter=8"
+
+
+def test_build_assembly_no_variables(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            result = runner.invoke(cli, ["build", "--type", "stl"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        cmd = captured_calls[0]
+        assert "-D" not in cmd
+
+
+def test_build_output_filename_with_variables(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_ASSEMBLIES}=scad/main.scad[threads=metric;diameter=8]\n"
+        )
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append((args[0], kwargs))
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            result = runner.invoke(cli, ["build", "--type", "stl"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        cmd = captured_calls[0][0]
+        output_idx = cmd.index("-o")
+        assert "main__threads_metric__diameter_8.stl" in cmd[output_idx + 1]
+        assert Path(cmd[output_idx + 1]).parent.exists()
+
+
+def test_build_output_filename_without_variables(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append((args[0], kwargs))
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            result = runner.invoke(cli, ["build", "--type", "stl"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        cmd = captured_calls[0][0]
+        output_idx = cmd.index("-o")
+        assert "main.stl" in cmd[output_idx + 1]
+        assert "__" not in cmd[output_idx + 1]

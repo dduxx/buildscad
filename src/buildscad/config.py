@@ -1,7 +1,17 @@
 import json
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from jproperties import Properties
 from buildscad.types import OutputType, ColorScheme
+
+
+def _sanitize_filename(value: str) -> str:
+    sanitized = re.sub(r"[^a-zA-Z0-9]", "_", value)
+    sanitized = re.sub(r"_+", "_", sanitized)
+    sanitized = sanitized.strip("_")
+    return sanitized
+
 
 PROP_PROJECT = "BUILDSCAD_PROJECT"
 PROP_VERSION = "BUILDSCAD_VERSION"
@@ -62,6 +72,70 @@ __pycache__/
 .DS_Store
 Thumbs.db
 """
+
+
+@dataclass
+class Assembly:
+    path: str
+    variables: dict[str, str]
+
+    def get_filename_suffix(self) -> str:
+        if not self.variables:
+            return ""
+        parts = []
+        for key, value in self.variables.items():
+            parts.append(f"{key}_{_sanitize_filename(value)}")
+
+        return "__" + "__".join(parts)
+
+
+def _unescape_value(value: str) -> str:
+    value = value.replace("\\\\", "\x00")
+    value = value.replace("\\;", ";")
+    value = value.replace("\\=", "=")
+    value = value.replace("\x00", "\\")
+    return value
+
+
+def _parse_assembly(entry: str) -> Assembly:
+    entry = entry.strip()
+
+    if not entry:
+        raise ValueError("Empty assembly entry")
+
+    bracket_start = entry.find("[")
+    if bracket_start == -1:
+        return Assembly(path=entry, variables={})
+
+    bracket_end = entry.rfind("]")
+    if bracket_end == -1:
+        raise ValueError(f"Missing closing bracket in assembly entry: {entry}")
+    if bracket_end != len(entry) - 1:
+        raise ValueError(f"Unexpected characters after closing bracket in assembly entry: {entry}")
+
+    path = entry[:bracket_start]
+    vars_str = entry[bracket_start + 1 : bracket_end]
+
+    if not vars_str:
+        return Assembly(path=path, variables={})
+
+    variables = {}
+    pairs = re.split(r"(?<!\\);", vars_str)
+
+    for pair in pairs:
+        pair = pair.strip()
+        if not pair:
+            continue
+        equals_index = pair.find("=")
+        if equals_index == -1:
+            raise ValueError(f"Invalid variable format in assembly entry: {entry}")
+        if equals_index == 0:
+            raise ValueError(f"Empty variable key in assembly entry: {entry}")
+        key = pair[:equals_index].strip()
+        value = _unescape_value(pair[equals_index + 1 :].strip())
+        variables[key] = value
+
+    return Assembly(path=path, variables=variables)
 
 
 def get_project_root() -> Path:
@@ -137,14 +211,14 @@ def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
         )
 
 
-def get_assemblies(project_root: Path | None = None) -> list[str]:
+def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
     assemblies_str = get_property(
         PROP_ASSEMBLIES, DEFAULT_VALUES[PROP_ASSEMBLIES], project_root=project_root
     )
     if assemblies_str is None:
         raise ValueError("Project properties does not contain an assembly property")
 
-    return [a.strip() for a in assemblies_str.split(",") if a.strip()]
+    return [_parse_assembly(a) for a in assemblies_str.split(",") if a.strip()]
 
 
 def load_deps(project_root: Path | None = None) -> list[dict]:
