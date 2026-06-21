@@ -69,6 +69,7 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 | `BUILDSCAD_OPENSCAD_PATH` | No | `openscad` | Path to OpenSCAD executable |
 | `BUILDSCAD_OUTPUT_FORMAT` | No | `stl` | Default output format(s), comma-separated: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast` |
 | `BUILDSCAD_OPENSCAD_COLORSCHEME` | No | `Cornfield` | OpenSCAD color scheme: `Cornfield`, `Sunset`, `Metallic`, `Starlight`, `BeforeDawn`, `Nature`, `DeepOcean`, `Solarized` |
+| `BUILDSCAD_OPENSCAD_VERSION` | No | — | Required OpenSCAD version. Supports exact match (`2021.01`), minimum (`>=2021.01`), or maximum (`<=2021.01`). If set, the build will fail if the installed OpenSCAD version does not match. |
 
 Optional properties are commented out by default. Uncomment them to use.
 

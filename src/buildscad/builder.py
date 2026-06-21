@@ -1,12 +1,90 @@
+import re
 import subprocess
 from pathlib import Path
 
-from buildscad.config import get_openscad_path, BUILD_DIR, get_colorscheme, Assembly
-from buildscad.dependencies import get_dependency_paths
+from buildscad.config import get_openscad_path, BUILD_DIR, get_colorscheme, Assembly, get_openscad_version
 from buildscad.types import OutputType
 import logging
 
 logger = logging.getLogger("buildscad")
+
+
+def _parse_version(version_str: str) -> tuple[int, ...]:
+    cleaned = version_str.strip()
+    cleaned = re.sub(r"\s*\(git.*?\)", "", cleaned)
+    cleaned = cleaned.replace(".snap", "")
+    cleaned = re.sub(r"-RC\d+", "", cleaned)
+    cleaned = re.sub(r"\.ci\d+", "", cleaned)
+    cleaned = re.sub(r"^([><]=)", "", cleaned)
+    cleaned = re.sub(r"^Q", "", cleaned, flags=re.IGNORECASE)
+
+    parts = cleaned.split(".")
+    result = []
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        q_match = re.match(r"^Q?(\d+)$", part, re.IGNORECASE)
+        if q_match:
+            result.append(int(q_match.group(1)))
+        else:
+            try:
+                result.append(int(part))
+            except ValueError:
+                raise ValueError(f"Invalid version component '{part}' in '{version_str}'")
+
+    if not result:
+        raise ValueError(f"Invalid version string: '{version_str}'")
+
+    return tuple(result)
+
+
+def _get_version_comparison(version_str: str) -> tuple[str, tuple[int, ...]]:
+    stripped = version_str.strip()
+    if stripped.startswith(">="):
+        return ">=", _parse_version(stripped[2:])
+    elif stripped.startswith("<="):
+        return "<=", _parse_version(stripped[2:])
+    else:
+        return "==", _parse_version(stripped)
+
+
+def _get_installed_openscad_version(openscad_path: str) -> str:
+    result = subprocess.run(
+        [openscad_path, "--version"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    output = result.stdout.strip() or result.stderr.strip()
+    match = re.search(r"OpenSCAD\s+version\s+(.+)", output)
+    if not match:
+        raise RuntimeError(f"Could not parse OpenSCAD version from output: '{output}'")
+    return match.group(1).strip()
+
+
+def check_openscad_version(openscad_path: str, required_version: str) -> None:
+    operator, required_tuple = _get_version_comparison(required_version)
+    installed_str = _get_installed_openscad_version(openscad_path)
+    installed_tuple = _parse_version(installed_str)
+
+    required_display = re.sub(r"^([><]=)", "", required_version).strip()
+
+    if operator == ">=":
+        if installed_tuple < required_tuple:
+            raise RuntimeError(
+                f"OpenSCAD version mismatch: required >= {required_display}, found {installed_str}"
+            )
+    elif operator == "<=":
+        if installed_tuple > required_tuple:
+            raise RuntimeError(
+                f"OpenSCAD version mismatch: required <= {required_display}, found {installed_str}"
+            )
+    else:
+        if installed_tuple != required_tuple:
+            raise RuntimeError(
+                f"OpenSCAD version mismatch: required {required_display}, found {installed_str}"
+            )
 
 
 def build_assembly(
@@ -45,6 +123,13 @@ def build_all(
 ) -> list[tuple[str, str]]:
     output_dir = project_root.joinpath(BUILD_DIR, output_type.value)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    openscad = get_openscad_path(project_root)
+    required_version = get_openscad_version(project_root)
+    if required_version:
+        logger.debug(f"Checking OpenSCAD version against requirement: {required_version}")
+        check_openscad_version(openscad, required_version)
+        logger.debug("OpenSCAD version check passed")
 
     built = []
     for assembly in assemblies:

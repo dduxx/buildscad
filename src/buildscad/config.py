@@ -22,6 +22,7 @@ PROP_LOG_LEVEL = "BUILDSCAD_LOG_LEVEL"
 PROP_OPENSCAD_PATH = "BUILDSCAD_OPENSCAD_PATH"
 PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
 PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
+PROP_OPENSCAD_VERSION = "BUILDSCAD_OPENSCAD_VERSION"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
 OPTIONAL_PROPS = [
@@ -29,6 +30,7 @@ OPTIONAL_PROPS = [
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
     PROP_OPENSCAD_COLORSCHEME,
+    PROP_OPENSCAD_VERSION,
 ]
 ENV_OVERRIDABLE_PROPS = [
     PROP_LOG_LEVEL,
@@ -219,6 +221,10 @@ def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
         raise ValueError(
             f"Invalid {PROP_OPENSCAD_COLORSCHEME} value '{colorscheme}'. Valid schemes: {valid}"
         )
+
+
+def get_openscad_version(project_root: Path | None = None) -> str | None:
+    return get_property(PROP_OPENSCAD_VERSION, project_root=project_root)
 
 
 def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
