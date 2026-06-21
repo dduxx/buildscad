@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,6 +28,11 @@ OPTIONAL_PROPS = [
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
+    PROP_OPENSCAD_COLORSCHEME,
+]
+ENV_OVERRIDABLE_PROPS = [
+    PROP_LOG_LEVEL,
+    PROP_OPENSCAD_PATH,
     PROP_OPENSCAD_COLORSCHEME,
 ]
 
@@ -162,6 +168,10 @@ def load_properties(project_root: Path | None = None) -> dict[str, str]:
 def get_property(
     key: str, default: str | None = None, project_root: Path | None = None
 ) -> str | None:
+    if key in ENV_OVERRIDABLE_PROPS:
+        env_value = os.environ.get(key)
+        if env_value is not None:
+            return env_value
     props = load_properties(project_root)
     return props.get(key, default)
 

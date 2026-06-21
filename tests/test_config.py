@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from buildscad.config import (
@@ -11,6 +9,8 @@ from buildscad.config import (
     write_deps,
     get_project_root,
     get_output_formats,
+    get_openscad_path,
+    get_colorscheme,
     _parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -22,7 +22,9 @@ from buildscad.config import (
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
+    PROP_OPENSCAD_COLORSCHEME,
     DEFAULT_VALUES,
+    ENV_OVERRIDABLE_PROPS,
 )
 from buildscad.types import OutputType
 
@@ -341,3 +343,40 @@ def test_build_output_filename_no_variables(project_root):
     project_root.joinpath("buildscad.properties").write_text(f"{PROP_ASSEMBLIES}=scad/main.scad\n")
     assemblies = get_assemblies(project_root=project_root)
     assert assemblies[0].get_filename_suffix() == ""
+
+
+def test_get_property_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_LOG_LEVEL, "DEBUG")
+    assert get_property(PROP_LOG_LEVEL, project_root=initialized_project) == "DEBUG"
+
+
+def test_get_openscad_path_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_OPENSCAD_PATH, "/custom/path/openscad")
+    assert get_openscad_path(project_root=initialized_project) == "/custom/path/openscad"
+
+
+def test_get_colorscheme_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_OPENSCAD_COLORSCHEME, "Metallic")
+    assert get_colorscheme(project_root=initialized_project).value == "Metallic"
+
+
+def test_get_property_env_var_takes_precedence_over_file(initialized_project, monkeypatch):
+    initialized_project.joinpath("buildscad.properties").write_text(f"{PROP_LOG_LEVEL}=INFO\n")
+    monkeypatch.setenv(PROP_LOG_LEVEL, "DEBUG")
+    assert get_property(PROP_LOG_LEVEL, project_root=initialized_project) == "DEBUG"
+
+
+def test_get_property_env_var_not_allowed(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_PROJECT, "env-project")
+    assert get_property(PROP_PROJECT, project_root=initialized_project) != "env-project"
+
+
+def test_env_overridable_props_constant():
+    assert PROP_LOG_LEVEL in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_PATH in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_COLORSCHEME in ENV_OVERRIDABLE_PROPS
+    assert PROP_PROJECT not in ENV_OVERRIDABLE_PROPS
+    assert PROP_VERSION not in ENV_OVERRIDABLE_PROPS
+    assert PROP_AUTHOR not in ENV_OVERRIDABLE_PROPS
+    assert PROP_ASSEMBLIES not in ENV_OVERRIDABLE_PROPS
+    assert PROP_OUTPUT_FORMAT not in ENV_OVERRIDABLE_PROPS
