@@ -72,6 +72,24 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 
 Optional properties are commented out by default. Uncomment them to use.
 
+### Environment Variable Overrides
+
+The following properties can be overridden by setting environment variables. Environment variables take precedence over values in `buildscad.properties`:
+
+| Environment Variable | Property |
+|---------------------|----------|
+| `BUILDSCAD_LOG_LEVEL` | `BUILDSCAD_LOG_LEVEL` |
+| `BUILDSCAD_OPENSCAD_PATH` | `BUILDSCAD_OPENSCAD_PATH` |
+| `BUILDSCAD_OPENSCAD_COLORSCHEME` | `BUILDSCAD_OPENSCAD_COLORSCHEME` |
+
+Example:
+
+```bash
+export BUILDSCAD_OPENSCAD_PATH=/opt/openscad-nightly/openscad
+export BUILDSCAD_LOG_LEVEL=DEBUG
+buildscad build
+```
+
 ### `deps.json`
 
 A JSON array of dependencies. Each entry specifies a GitHub URL and a git ref (branch or tag):
