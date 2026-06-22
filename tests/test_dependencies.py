@@ -11,6 +11,7 @@ from buildscad.dependencies import (
     install_all_dependencies,
     get_dependency_paths,
 )
+from buildscad.error import BuildscadInvalidGitHubUrl
 
 
 def test_sanitize_name_basic():
@@ -60,12 +61,12 @@ def test_parse_github_url_ssh_trailing_git():
 
 
 def test_parse_github_url_invalid():
-    with pytest.raises(ValueError, match="Unsupported GitHub URL"):
+    with pytest.raises(BuildscadInvalidGitHubUrl, match="Unsupported GitHub URL"):
         parse_github_url("https://gitlab.com/some/repo")
 
 
 def test_parse_github_url_too_short():
-    with pytest.raises(ValueError, match="Invalid GitHub URL"):
+    with pytest.raises(BuildscadInvalidGitHubUrl, match="Invalid GitHub URL"):
         parse_github_url("https://github.com/onlyauthor")
 
 

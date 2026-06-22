@@ -10,6 +10,11 @@ from buildscad.config import (
     get_openscad_version,
 )
 from buildscad.types import OutputType
+from buildscad.error import (
+    BuildscadOpenSCADNotFound,
+    BuildscadOpenSCADFailed,
+    BuildscadAssemblyFileNotFound,
+)
 import logging
 
 logger = logging.getLogger("buildscad")
@@ -112,6 +117,17 @@ def build_assembly(
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
 
+    openscad_path = Path(openscad)
+    if not openscad_path.exists() and openscad_path.name == openscad:
+        import shutil
+
+        found = shutil.which(openscad)
+        if not found:
+            raise BuildscadOpenSCADNotFound(f"OpenSCAD executable not found: {openscad}")
+
+    if not Path(input_path).exists():
+        raise BuildscadAssemblyFileNotFound(f"Assembly file not found: {input_path}")
+
     cmd = [
         openscad,
         "--viewall",
@@ -129,8 +145,12 @@ def build_assembly(
     cmd.extend(["-o", output_path, input_path])
 
     logger.debug(f"Running OpenSCAD: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=True, cwd=str(project_root), capture_output=True)
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode().strip() if e.stderr else ""
+        raise BuildscadOpenSCADFailed(cmd, e.returncode, stderr) from e
     logger.debug(f"Finished building assembly {input_path} -> {output_path}")
-    subprocess.run(cmd, check=True, cwd=str(project_root))
 
 
 def build_all(

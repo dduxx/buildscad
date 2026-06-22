@@ -1,4 +1,6 @@
 from pathlib import Path
+import uuid
+import logging
 
 from click.testing import CliRunner
 
@@ -168,13 +170,15 @@ def test_clean_no_build_folder(project_root, log_output):
         assert "Finished cleaning build output." in output
 
 
-def test_build_invalid_type(project_root):
+def test_build_invalid_type(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["build", "--type", "invalid"])
         assert result.exit_code != 0
-        assert "not a valid output type" in str(result.exception)
+        output = log_output.getvalue()
+        assert "BuildscadInvalidOutputType" in output
+        assert "not a valid output type" in output
 
 
 from unittest.mock import patch
@@ -321,5 +325,46 @@ def test_build_output_filename_without_variables(project_root):
         assert len(captured_calls) == 1
         cmd = captured_calls[0][0]
         output_idx = cmd.index("-o")
-        assert "main.stl" in cmd[output_idx + 1]
-        assert "__" not in cmd[output_idx + 1]
+        output_path = Path(cmd[output_idx + 1])
+        assert output_path.name == "main.stl"
+
+
+def test_buildscad_error_logs_message_at_error_level(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["build", "--type", "invalid"])
+        assert result.exit_code == 1
+        output = log_output.getvalue()
+        assert "[ERROR]" in output
+        assert "BuildscadInvalidOutputType" in output
+        assert "not a valid output type" in output
+
+
+def test_buildscad_error_no_traceback_at_info_level(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        runner.invoke(cli, ["build", "--type", "invalid"])
+        output = log_output.getvalue()
+        assert "Traceback" not in output
+
+
+def test_unexpected_error_logs_type_and_traceback(project_root, log_output):
+    from buildscad import cli as cli_module
+    from unittest.mock import patch
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+
+        def raise_unexpected(*args, **kwargs):
+            raise RuntimeError("something went wrong")
+
+        with patch("buildscad.cli.get_project_root", side_effect=raise_unexpected):
+            result = runner.invoke(cli, ["build"])
+        assert result.exit_code == 2
+        output = log_output.getvalue()
+        assert "[ERROR]" in output
+        assert "RuntimeError" in output
+        assert "something went wrong" in output

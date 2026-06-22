@@ -5,6 +5,11 @@ from pathlib import Path
 import logging
 from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE
 from buildscad.config import load_deps as config_load_deps
+from buildscad.error import (
+    BuildscadInvalidGitHubUrl,
+    BuildscadCloneFailed,
+    BuildscadConfigError,
+)
 
 logger = logging.getLogger("buildscad")
 
@@ -23,11 +28,11 @@ def parse_github_url(url: str) -> tuple[str, str]:
     elif url.startswith("git@github.com:"):
         path = url[len("git@github.com:") :]
     else:
-        raise ValueError(f"Unsupported GitHub URL: {url}")
+        raise BuildscadInvalidGitHubUrl(f"Unsupported GitHub URL: {url}")
 
     parts = path.split("/")
     if len(parts) < 2:
-        raise ValueError(f"Invalid GitHub URL: {url}")
+        raise BuildscadInvalidGitHubUrl(f"Invalid GitHub URL: {url}")
 
     author = parts[0]
     project = parts[1]
@@ -83,11 +88,15 @@ def install_dependency(url: str, ref: str, project_root: Path, ignore_cache: boo
 
     deps_dir.mkdir(parents=True, exist_ok=True)
 
-    subprocess.run(
-        ["git", "clone", "--branch", ref, "--depth", "1", url, str(dep_path)],
-        check=True,
-        capture_output=True,
-    )
+    try:
+        subprocess.run(
+            ["git", "clone", "--branch", ref, "--depth", "1", url, str(dep_path)],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode().strip() if e.stderr else ""
+        raise BuildscadCloneFailed(url, ref, stderr) from e
 
     logger.debug(f"Finished installing dependency {url} : {ref}")
 
@@ -131,7 +140,7 @@ def install_all_dependencies(
                     _create_symlink(path, project_root)
                     installed.extend(sub_installed)
                     logger.debug(f"Finished resolving dependencies for {path.name}")
-            except ValueError:
+            except BuildscadConfigError:
                 logger.debug(
                     f"Dependency {path.name} has invalid {DEPS_FILE}, skipping recursive resolution."
                 )
