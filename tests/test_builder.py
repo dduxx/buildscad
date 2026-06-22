@@ -5,6 +5,7 @@ import pytest
 from buildscad.builder import (
     _parse_version,
     _get_version_comparison,
+    _get_version_comparisons,
     _get_installed_openscad_version,
     check_openscad_version,
 )
@@ -117,7 +118,9 @@ def test_check_openscad_version_exact_match():
 
 def test_check_openscad_version_exact_mismatch():
     with patch("buildscad.builder._get_installed_openscad_version", return_value="2021.02"):
-        with pytest.raises(RuntimeError, match="OpenSCAD version mismatch: required 2021.01, found 2021.02"):
+        with pytest.raises(
+            RuntimeError, match="OpenSCAD version mismatch: required 2021.01, found 2021.02"
+        ):
             check_openscad_version("/usr/bin/openscad", "2021.01")
 
 
@@ -128,7 +131,7 @@ def test_check_openscad_version_gte_pass():
 
 def test_check_openscad_version_gte_fail():
     with patch("buildscad.builder._get_installed_openscad_version", return_value="2020.12"):
-        with pytest.raises(RuntimeError, match="required >= 2021.01, found 2020.12"):
+        with pytest.raises(RuntimeError, match="required 2021.01, found 2020.12"):
             check_openscad_version("/usr/bin/openscad", ">=2021.01")
 
 
@@ -139,7 +142,7 @@ def test_check_openscad_version_lte_pass():
 
 def test_check_openscad_version_lte_fail():
     with patch("buildscad.builder._get_installed_openscad_version", return_value="2026.06.12.snap"):
-        with pytest.raises(RuntimeError, match="required <= 2021.01, found 2026.06.12.snap"):
+        with pytest.raises(RuntimeError, match="required 2021.01, found 2026.06.12.snap"):
             check_openscad_version("/usr/bin/openscad", "<=2021.01")
 
 
@@ -152,3 +155,50 @@ def test_check_openscad_version_snapshot_exact_fails():
     with patch("buildscad.builder._get_installed_openscad_version", return_value="2026.06.12.snap"):
         with pytest.raises(RuntimeError, match="required 2026.06, found 2026.06.12.snap"):
             check_openscad_version("/usr/bin/openscad", "2026.06")
+
+
+def test_get_version_comparisons_single():
+    conditions = _get_version_comparisons(">=2021.01")
+    assert len(conditions) == 1
+    assert conditions[0] == (">=", (2021, 1))
+
+
+def test_get_version_comparisons_range():
+    conditions = _get_version_comparisons(">=2021.01,<=2026.06")
+    assert len(conditions) == 2
+    assert conditions[0] == (">=", (2021, 1))
+    assert conditions[1] == ("<=", (2026, 6))
+
+
+def test_get_version_comparisons_with_spaces():
+    conditions = _get_version_comparisons(">=2021.01, <=2026.06")
+    assert len(conditions) == 2
+    assert conditions[0] == (">=", (2021, 1))
+    assert conditions[1] == ("<=", (2026, 6))
+
+
+def test_check_openscad_version_range_pass():
+    with patch("buildscad.builder._get_installed_openscad_version", return_value="2021.01"):
+        check_openscad_version("/usr/bin/openscad", ">=2021.01,<=2021.01")
+
+
+def test_check_openscad_version_range_pass_middle():
+    with patch("buildscad.builder._get_installed_openscad_version", return_value="2023.06"):
+        check_openscad_version("/usr/bin/openscad", ">=2021.01,<=2026.06")
+
+
+def test_check_openscad_version_range_fail_lower():
+    with patch("buildscad.builder._get_installed_openscad_version", return_value="2020.12"):
+        with pytest.raises(RuntimeError, match="required 2021.01,2026.06, found 2020.12"):
+            check_openscad_version("/usr/bin/openscad", ">=2021.01,<=2026.06")
+
+
+def test_check_openscad_version_range_fail_upper():
+    with patch("buildscad.builder._get_installed_openscad_version", return_value="2026.06.12.snap"):
+        with pytest.raises(RuntimeError, match="required 2021.01,2026.06, found 2026.06.12.snap"):
+            check_openscad_version("/usr/bin/openscad", ">=2021.01,<=2026.06")
+
+
+def test_check_openscad_version_nightly_range():
+    with patch("buildscad.builder._get_installed_openscad_version", return_value="2026.06.12.snap"):
+        check_openscad_version("/usr/bin/openscad", ">=2026.06,<=2026.07")
