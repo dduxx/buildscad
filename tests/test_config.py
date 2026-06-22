@@ -11,6 +11,7 @@ from buildscad.config import (
     get_output_formats,
     get_openscad_path,
     get_colorscheme,
+    get_openscad_version,
     _parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -23,6 +24,7 @@ from buildscad.config import (
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
     PROP_OPENSCAD_COLORSCHEME,
+    PROP_OPENSCAD_VERSION,
     DEFAULT_VALUES,
     ENV_OVERRIDABLE_PROPS,
 )
@@ -380,3 +382,15 @@ def test_env_overridable_props_constant():
     assert PROP_AUTHOR not in ENV_OVERRIDABLE_PROPS
     assert PROP_ASSEMBLIES not in ENV_OVERRIDABLE_PROPS
     assert PROP_OUTPUT_FORMAT not in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_VERSION not in ENV_OVERRIDABLE_PROPS
+
+
+def test_get_openscad_version_not_set(initialized_project):
+    assert get_openscad_version(project_root=initialized_project) is None
+
+
+def test_get_openscad_version_set(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OPENSCAD_VERSION}=2026.06\n"
+    )
+    assert get_openscad_version(project_root=project_root) == "2026.06"
