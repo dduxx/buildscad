@@ -1,4 +1,7 @@
+import functools
 import logging
+import sys
+import traceback
 import click
 from pathlib import Path
 from copy import deepcopy
@@ -24,8 +27,26 @@ from buildscad.config import (
 )
 from buildscad.dependencies import install_all_dependencies, clean_dependencies
 from buildscad.builder import build_all
+from buildscad.error import BuildscadError, BuildscadMissingConfigFile
 
 logger = logging.getLogger("buildscad")
+
+
+def handle_errors(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except BuildscadError as e:
+            logger.error(f"{e.__class__.__name__}: {e.message}")
+            logger.debug(traceback.format_exc())
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"{type(e).__name__}: {e}")
+            logger.debug(traceback.format_exc())
+            sys.exit(2)
+
+    return wrapper
 
 
 class ISOFormatter(logging.Formatter):
@@ -45,7 +66,7 @@ def configure_logging():
             level = getattr(logging, level_str.upper(), logging.INFO)
         else:
             level = logging.INFO
-    except FileNotFoundError:
+    except BuildscadMissingConfigFile:
         level = logging.INFO
 
     handler = logging.StreamHandler()
@@ -68,6 +89,7 @@ def cli():
     required=False,
     help="Optional project name. If no name is provided the name of the current directory is used",
 )
+@handle_errors
 def init(name):
     """Initialize a new buildscad project."""
 
@@ -108,6 +130,7 @@ def init(name):
 
 @cli.command()
 @click.option("--ignore-cache", is_flag=True, help="Force re-download of existing dependencies.")
+@handle_errors
 def pull(ignore_cache):
     """Install project dependencies."""
 
@@ -125,6 +148,7 @@ def pull(ignore_cache):
 
 @cli.command()
 @click.option("--keep-build", is_flag=True, help="Skip deleting build output files.")
+@handle_errors
 def clean(keep_build):
     """Clean the project dependencies and build output files."""
 
@@ -155,6 +179,7 @@ def clean(keep_build):
     multiple=True,
     help="Output format type. Overrides BUILDSCAD_OUTPUT_FORMAT property. Can be specified multiple times. Valid types: stl, 3mf, amf, off, dxf, svg, png, csg, echo, ast",
 )
+@handle_errors
 def build(output_types):
     """Build assemblies into output files."""
 

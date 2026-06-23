@@ -29,6 +29,12 @@ from buildscad.config import (
     ENV_OVERRIDABLE_PROPS,
 )
 from buildscad.types import OutputType
+from buildscad.error import (
+    BuildscadAssemblyParseError,
+    BuildscadMissingConfigFile,
+    BuildscadInvalidProperty,
+    BuildscadInvalidOutputType,
+)
 
 
 def test_load_properties(initialized_project):
@@ -138,27 +144,29 @@ def test_parse_assembly_escaped_backslash():
 
 
 def test_parse_assembly_missing_closing_bracket():
-    with pytest.raises(ValueError, match="Missing closing bracket"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Missing closing bracket"):
         _parse_assembly("scad/main.scad[var=value")
 
 
 def test_parse_assembly_chars_after_bracket():
-    with pytest.raises(ValueError, match="Unexpected characters after closing bracket"):
+    with pytest.raises(
+        BuildscadAssemblyParseError, match="Unexpected characters after closing bracket"
+    ):
         _parse_assembly("scad/main.scad[var=value]extra")
 
 
 def test_parse_assembly_empty_key():
-    with pytest.raises(ValueError, match="Empty variable key"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Empty variable key"):
         _parse_assembly("scad/main.scad[=value]")
 
 
 def test_parse_assembly_no_equals_in_var():
-    with pytest.raises(ValueError, match="Invalid variable format"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Invalid variable format"):
         _parse_assembly("scad/main.scad[badvar]")
 
 
 def test_parse_assembly_empty_entry():
-    with pytest.raises(ValueError, match="Empty assembly entry"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Empty assembly entry"):
         _parse_assembly("")
 
 
@@ -184,7 +192,7 @@ def test_load_deps_with_entries(project_root):
 
 def test_load_deps_invalid_format(project_root):
     project_root.joinpath("deps.json").write_text('{"not": "an array"}')
-    with pytest.raises(ValueError, match="must contain a JSON array"):
+    with pytest.raises(BuildscadInvalidProperty, match="must contain a JSON array"):
         load_deps(project_root)
 
 
@@ -224,17 +232,17 @@ def test_get_project_root(initialized_project):
 
 
 def test_get_project_root_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="buildscad.properties not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="buildscad.properties not found"):
         get_project_root()
 
 
 def test_load_properties_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="buildscad.properties not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="buildscad.properties not found"):
         load_properties(project_root)
 
 
 def test_load_deps_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="deps.json not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="deps.json not found"):
         load_deps(project_root)
 
 
@@ -276,7 +284,7 @@ def test_get_output_formats_cli_multiple(project_root):
 
 
 def test_get_output_formats_invalid_cli(project_root):
-    with pytest.raises(ValueError, match="not a valid output type"):
+    with pytest.raises(BuildscadInvalidOutputType, match="not a valid output type"):
         get_output_formats(cli_types=("invalid",))
 
 
@@ -284,7 +292,7 @@ def test_get_output_formats_invalid_property(project_root):
     project_root.joinpath("buildscad.properties").write_text(
         f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=badformat\n"
     )
-    with pytest.raises(ValueError, match="'badformat' is not a valid output type"):
+    with pytest.raises(BuildscadInvalidOutputType, match="'badformat' is not a valid output type"):
         get_output_formats(project_root=project_root)
 
 

@@ -3,8 +3,15 @@ import shutil
 import subprocess
 from pathlib import Path
 import logging
-from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE
+from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE, PROP_OPENSCAD_VERSION
 from buildscad.config import load_deps as config_load_deps
+from buildscad.config import load_properties, get_openscad_path
+from buildscad.error import (
+    BuildscadInvalidGitHubUrl,
+    BuildscadCloneFailed,
+    BuildscadConfigError,
+)
+from buildscad.version import check_openscad_version
 
 logger = logging.getLogger("buildscad")
 
@@ -23,11 +30,11 @@ def parse_github_url(url: str) -> tuple[str, str]:
     elif url.startswith("git@github.com:"):
         path = url[len("git@github.com:") :]
     else:
-        raise ValueError(f"Unsupported GitHub URL: {url}")
+        raise BuildscadInvalidGitHubUrl(f"Unsupported GitHub URL: {url}")
 
     parts = path.split("/")
     if len(parts) < 2:
-        raise ValueError(f"Invalid GitHub URL: {url}")
+        raise BuildscadInvalidGitHubUrl(f"Invalid GitHub URL: {url}")
 
     author = parts[0]
     project = parts[1]
@@ -83,11 +90,15 @@ def install_dependency(url: str, ref: str, project_root: Path, ignore_cache: boo
 
     deps_dir.mkdir(parents=True, exist_ok=True)
 
-    subprocess.run(
-        ["git", "clone", "--branch", ref, "--depth", "1", url, str(dep_path)],
-        check=True,
-        capture_output=True,
-    )
+    try:
+        subprocess.run(
+            ["git", "clone", "--branch", ref, "--depth", "1", url, str(dep_path)],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode().strip() if e.stderr else ""
+        raise BuildscadCloneFailed(url, ref, stderr) from e
 
     logger.debug(f"Finished installing dependency {url} : {ref}")
 
@@ -104,6 +115,8 @@ def install_all_dependencies(
         seen = set()
 
     installed = []
+    openscad_path = get_openscad_path(project_root)
+
     for dep in deps:
         url = dep["url"]
         ref = dep.get("ref", "main")
@@ -122,6 +135,18 @@ def install_all_dependencies(
             logger.debug(
                 f"Dependency {path.name} is a buildscad project, resolving its dependencies..."
             )
+
+            try:
+                dep_props = load_properties(path)
+                required_version = dep_props.get(PROP_OPENSCAD_VERSION)
+                if required_version:
+                    logger.debug(f"Checking OpenSCAD version for {path.name}: {required_version}")
+                    check_openscad_version(openscad_path, required_version, dep_name=path.name)
+            except BuildscadConfigError:
+                logger.debug(
+                    f"Dependency {path.name} has invalid {PROPERTIES_FILE}, skipping version check."
+                )
+
             try:
                 sub_deps = config_load_deps(path)
                 if sub_deps:
@@ -131,7 +156,7 @@ def install_all_dependencies(
                     _create_symlink(path, project_root)
                     installed.extend(sub_installed)
                     logger.debug(f"Finished resolving dependencies for {path.name}")
-            except ValueError:
+            except BuildscadConfigError:
                 logger.debug(
                     f"Dependency {path.name} has invalid {DEPS_FILE}, skipping recursive resolution."
                 )
