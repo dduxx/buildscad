@@ -1,10 +1,8 @@
 from pathlib import Path
-import uuid
-import logging
 
 from click.testing import CliRunner
 
-from buildscad.cli import cli, init, pull, clean, build
+from buildscad.cli import cli
 from buildscad.config import (
     PROP_PROJECT,
     PROP_VERSION,
@@ -14,7 +12,6 @@ from buildscad.config import (
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
     DEFAULT_VALUES,
-    BUILD_DIR,
 )
 
 
@@ -189,7 +186,8 @@ def test_build_valid_type(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         with patch("buildscad.builder.subprocess.run"):
-            result = runner.invoke(cli, ["build", "--type", "3mf"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "3mf"])
         assert result.exit_code == 0
         assert "3mf" in result.output
 
@@ -199,7 +197,8 @@ def test_build_multiple_types(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         with patch("buildscad.builder.subprocess.run"):
-            result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
         assert result.exit_code == 0
         assert "stl" in result.output
         assert "png" in result.output
@@ -212,7 +211,8 @@ def test_build_uses_property_format_when_no_type_flag(project_root):
         props = Path("buildscad.properties").read_text()
         Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
-            result = runner.invoke(cli, ["build"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build"])
         assert result.exit_code == 0
         assert "3mf" in result.output
         assert Path("build/3mf/scad/main.3mf").parent.exists()
@@ -225,7 +225,8 @@ def test_build_type_flag_overrides_property(project_root):
         props = Path("buildscad.properties").read_text()
         Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
-            result = runner.invoke(cli, ["build", "--type", "amf"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "amf"])
         assert result.exit_code == 0
         assert "amf" in result.output
         assert "3mf" not in result.output
@@ -238,7 +239,8 @@ def test_build_multiple_type_flags_override_property(project_root):
         props = Path("buildscad.properties").read_text()
         Path("buildscad.properties").write_text(props + f"{PROP_OUTPUT_FORMAT}=3mf\n")
         with patch("buildscad.builder.subprocess.run"):
-            result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
         assert result.exit_code == 0
         assert "stl" in result.output
         assert "png" in result.output
@@ -259,7 +261,8 @@ def test_build_with_assembly_variables(project_root):
             captured_calls.append(args[0])
 
         with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
-            result = runner.invoke(cli, ["build", "--type", "stl"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl"])
         assert result.exit_code == 0
         assert len(captured_calls) == 1
         cmd = captured_calls[0]
@@ -280,7 +283,8 @@ def test_build_assembly_no_variables(project_root):
             captured_calls.append(args[0])
 
         with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
-            result = runner.invoke(cli, ["build", "--type", "stl"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl"])
         assert result.exit_code == 0
         assert len(captured_calls) == 1
         cmd = captured_calls[0]
@@ -301,7 +305,8 @@ def test_build_output_filename_with_variables(project_root):
             captured_calls.append((args[0], kwargs))
 
         with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
-            result = runner.invoke(cli, ["build", "--type", "stl"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl"])
         assert result.exit_code == 0
         assert len(captured_calls) == 1
         cmd = captured_calls[0][0]
@@ -320,7 +325,8 @@ def test_build_output_filename_without_variables(project_root):
             captured_calls.append((args[0], kwargs))
 
         with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
-            result = runner.invoke(cli, ["build", "--type", "stl"])
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl"])
         assert result.exit_code == 0
         assert len(captured_calls) == 1
         cmd = captured_calls[0][0]
@@ -351,7 +357,6 @@ def test_buildscad_error_no_traceback_at_info_level(project_root, log_output):
 
 
 def test_unexpected_error_logs_type_and_traceback(project_root, log_output):
-    from buildscad import cli as cli_module
     from unittest.mock import patch
 
     runner = CliRunner()

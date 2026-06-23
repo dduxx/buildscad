@@ -33,9 +33,7 @@ from buildscad.error import (
     BuildscadAssemblyParseError,
     BuildscadMissingConfigFile,
     BuildscadInvalidProperty,
-    BuildscadMissingProperty,
     BuildscadInvalidOutputType,
-    BuildscadInvalidColorScheme,
 )
 
 

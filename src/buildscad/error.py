@@ -1,21 +1,9 @@
-"""Custom exception hierarchy for buildscad.
-
-All custom exceptions inherit from BuildscadError, allowing callers to catch
-any buildscad-specific error with a single except clause.
-"""
-
-
 class BuildscadError(Exception):
     """Base exception for all buildscad errors."""
 
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
-
-
-# ---------------------------------------------------------------------------
-# Configuration errors
-# ---------------------------------------------------------------------------
 
 
 class BuildscadConfigError(BuildscadError):
@@ -42,20 +30,10 @@ class BuildscadMissingProperty(BuildscadConfigError):
     pass
 
 
-# ---------------------------------------------------------------------------
-# Assembly parsing errors
-# ---------------------------------------------------------------------------
-
-
 class BuildscadAssemblyParseError(BuildscadError):
     """Raised when an assembly string cannot be parsed."""
 
     pass
-
-
-# ---------------------------------------------------------------------------
-# Dependency errors
-# ---------------------------------------------------------------------------
 
 
 class BuildscadDependencyError(BuildscadError):
@@ -90,11 +68,6 @@ class BuildscadCircularDependency(BuildscadDependencyError):
     pass
 
 
-# ---------------------------------------------------------------------------
-# Build errors
-# ---------------------------------------------------------------------------
-
-
 class BuildscadBuildError(BuildscadError):
     """Base exception for build-related errors."""
 
@@ -127,9 +100,18 @@ class BuildscadAssemblyFileNotFound(BuildscadBuildError):
     pass
 
 
-# ---------------------------------------------------------------------------
-# File system errors
-# ---------------------------------------------------------------------------
+class BuildscadOpenSCADVersionMismatch(BuildscadBuildError):
+    """Raised when installed OpenSCAD version doesn't meet dependency requirements."""
+
+    def __init__(self, dep_name: str, required: str, installed: str) -> None:
+        self.dep_name = dep_name
+        self.required = required
+        self.installed = installed
+        self.message = (
+            f"OpenSCAD version mismatch for dependency '{dep_name}': "
+            f"requires {required}, found {installed}"
+        )
+        super().__init__(self.message)
 
 
 class BuildscadFileError(BuildscadError):
@@ -148,11 +130,6 @@ class BuildscadDiskFull(BuildscadFileError):
     """Raised when a write operation fails due to insufficient disk space."""
 
     pass
-
-
-# ---------------------------------------------------------------------------
-# Validation errors
-# ---------------------------------------------------------------------------
 
 
 class BuildscadInvalidOutputType(BuildscadError):

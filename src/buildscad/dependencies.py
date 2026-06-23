@@ -3,13 +3,15 @@ import shutil
 import subprocess
 from pathlib import Path
 import logging
-from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE
+from buildscad.config import DEP_DIR, DEPS_FILE, PROPERTIES_FILE, PROP_OPENSCAD_VERSION
 from buildscad.config import load_deps as config_load_deps
+from buildscad.config import load_properties, get_openscad_path
 from buildscad.error import (
     BuildscadInvalidGitHubUrl,
     BuildscadCloneFailed,
     BuildscadConfigError,
 )
+from buildscad.version import check_openscad_version
 
 logger = logging.getLogger("buildscad")
 
@@ -113,6 +115,8 @@ def install_all_dependencies(
         seen = set()
 
     installed = []
+    openscad_path = get_openscad_path(project_root)
+
     for dep in deps:
         url = dep["url"]
         ref = dep.get("ref", "main")
@@ -131,6 +135,18 @@ def install_all_dependencies(
             logger.debug(
                 f"Dependency {path.name} is a buildscad project, resolving its dependencies..."
             )
+
+            try:
+                dep_props = load_properties(path)
+                required_version = dep_props.get(PROP_OPENSCAD_VERSION)
+                if required_version:
+                    logger.debug(f"Checking OpenSCAD version for {path.name}: {required_version}")
+                    check_openscad_version(openscad_path, required_version, dep_name=path.name)
+            except BuildscadConfigError:
+                logger.debug(
+                    f"Dependency {path.name} has invalid {PROPERTIES_FILE}, skipping version check."
+                )
+
             try:
                 sub_deps = config_load_deps(path)
                 if sub_deps:

@@ -11,7 +11,7 @@ from buildscad.dependencies import (
     install_all_dependencies,
     get_dependency_paths,
 )
-from buildscad.error import BuildscadInvalidGitHubUrl
+from buildscad.error import BuildscadInvalidGitHubUrl, BuildscadOpenSCADVersionMismatch
 
 
 def test_sanitize_name_basic():
@@ -134,7 +134,8 @@ def test_install_all_dependencies_recursive(tmp_path):
         return dep_path
 
     with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
-        install_all_dependencies(deps, tmp_path)
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            install_all_dependencies(deps, tmp_path)
 
     top_deps_dir = tmp_path / "dependencies"
     assert top_deps_dir.joinpath("authorA:depA:v1").exists()
@@ -170,7 +171,8 @@ def test_install_all_dependencies_circular(tmp_path):
         return dep_path
 
     with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
-        install_all_dependencies(deps_a, tmp_path)
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            install_all_dependencies(deps_a, tmp_path)
 
     assert call_count["count"] == 2
 
@@ -194,7 +196,8 @@ def test_install_all_dependencies_duplicate_transitive(tmp_path):
         return dep_path
 
     with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
-        install_all_dependencies(deps, tmp_path)
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            install_all_dependencies(deps, tmp_path)
 
     top_deps_dir = tmp_path / "dependencies"
     assert top_deps_dir.joinpath("authorC:shared:v2").exists()
@@ -216,7 +219,8 @@ def test_install_all_dependencies_non_buildscad_dep(tmp_path):
         return dep_path
 
     with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
-        install_all_dependencies(deps, tmp_path)
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            install_all_dependencies(deps, tmp_path)
 
     top_deps_dir = tmp_path / "dependencies"
     assert top_deps_dir.joinpath("authorA:plain-lib:v1").exists()
@@ -235,3 +239,68 @@ def test_get_dependency_paths_includes_symlinks(tmp_path):
 
     paths = get_dependency_paths(tmp_path)
     assert len(paths) == 2
+
+
+def test_install_all_dependencies_version_check_passes(tmp_path):
+    deps = [
+        {"url": "https://github.com/authorA/depA", "ref": "v1"},
+    ]
+
+    def side_effect(url, ref, project_root, ignore_cache=False):
+        dep_path = _mock_install_dependency(url, ref, project_root, ignore_cache)
+        dep_path.joinpath("buildscad.properties").write_text(
+            "BUILDSCAD_PROJECT=depA\nBUILDSCAD_OPENSCAD_VERSION=>=2021.01\n"
+        )
+        dep_path.joinpath("deps.json").write_text("[]")
+        return dep_path
+
+    with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            with patch("buildscad.version.get_installed_openscad_version", return_value="2022.01"):
+                install_all_dependencies(deps, tmp_path)
+
+    top_deps_dir = tmp_path / "dependencies"
+    assert top_deps_dir.joinpath("authorA:depA:v1").exists()
+
+
+def test_install_all_dependencies_version_check_fails(tmp_path):
+    deps = [
+        {"url": "https://github.com/authorA/depA", "ref": "v1"},
+    ]
+
+    def side_effect(url, ref, project_root, ignore_cache=False):
+        dep_path = _mock_install_dependency(url, ref, project_root, ignore_cache)
+        dep_path.joinpath("buildscad.properties").write_text(
+            "BUILDSCAD_PROJECT=depA\nBUILDSCAD_OPENSCAD_VERSION=2023.01\n"
+        )
+        dep_path.joinpath("deps.json").write_text("[]")
+        return dep_path
+
+    with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            with patch("buildscad.version.get_installed_openscad_version", return_value="2021.01"):
+                with pytest.raises(BuildscadOpenSCADVersionMismatch) as exc_info:
+                    install_all_dependencies(deps, tmp_path)
+                assert exc_info.value.dep_name == "authorA:depA:v1"
+                assert exc_info.value.required == "2023.01"
+                assert exc_info.value.installed == "2021.01"
+
+
+def test_install_all_dependencies_no_version_requirement(tmp_path):
+    deps = [
+        {"url": "https://github.com/authorA/depA", "ref": "v1"},
+    ]
+
+    def side_effect(url, ref, project_root, ignore_cache=False):
+        dep_path = _mock_install_dependency(url, ref, project_root, ignore_cache)
+        dep_path.joinpath("buildscad.properties").write_text("BUILDSCAD_PROJECT=depA\n")
+        dep_path.joinpath("deps.json").write_text("[]")
+        return dep_path
+
+    with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
+        with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
+            with patch("buildscad.version.get_installed_openscad_version", return_value="2021.01"):
+                install_all_dependencies(deps, tmp_path)
+
+    top_deps_dir = tmp_path / "dependencies"
+    assert top_deps_dir.joinpath("authorA:depA:v1").exists()
