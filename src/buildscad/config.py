@@ -1,9 +1,18 @@
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from jproperties import Properties
 from buildscad.types import OutputType, ColorScheme
+from buildscad.error import (
+    BuildscadAssemblyParseError,
+    BuildscadMissingConfigFile,
+    BuildscadInvalidProperty,
+    BuildscadMissingProperty,
+    BuildscadInvalidOutputType,
+    BuildscadInvalidColorScheme,
+)
 
 
 def _sanitize_filename(value: str) -> str:
@@ -21,12 +30,19 @@ PROP_LOG_LEVEL = "BUILDSCAD_LOG_LEVEL"
 PROP_OPENSCAD_PATH = "BUILDSCAD_OPENSCAD_PATH"
 PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
 PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
+PROP_OPENSCAD_VERSION = "BUILDSCAD_OPENSCAD_VERSION"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
 OPTIONAL_PROPS = [
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
+    PROP_OPENSCAD_COLORSCHEME,
+    PROP_OPENSCAD_VERSION,
+]
+ENV_OVERRIDABLE_PROPS = [
+    PROP_LOG_LEVEL,
+    PROP_OPENSCAD_PATH,
     PROP_OPENSCAD_COLORSCHEME,
 ]
 
@@ -101,7 +117,7 @@ def _parse_assembly(entry: str) -> Assembly:
     entry = entry.strip()
 
     if not entry:
-        raise ValueError("Empty assembly entry")
+        raise BuildscadAssemblyParseError("Empty assembly entry")
 
     bracket_start = entry.find("[")
     if bracket_start == -1:
@@ -109,9 +125,11 @@ def _parse_assembly(entry: str) -> Assembly:
 
     bracket_end = entry.rfind("]")
     if bracket_end == -1:
-        raise ValueError(f"Missing closing bracket in assembly entry: {entry}")
+        raise BuildscadAssemblyParseError(f"Missing closing bracket in assembly entry: {entry}")
     if bracket_end != len(entry) - 1:
-        raise ValueError(f"Unexpected characters after closing bracket in assembly entry: {entry}")
+        raise BuildscadAssemblyParseError(
+            f"Unexpected characters after closing bracket in assembly entry: {entry}"
+        )
 
     path = entry[:bracket_start]
     vars_str = entry[bracket_start + 1 : bracket_end]
@@ -128,9 +146,9 @@ def _parse_assembly(entry: str) -> Assembly:
             continue
         equals_index = pair.find("=")
         if equals_index == -1:
-            raise ValueError(f"Invalid variable format in assembly entry: {entry}")
+            raise BuildscadAssemblyParseError(f"Invalid variable format in assembly entry: {entry}")
         if equals_index == 0:
-            raise ValueError(f"Empty variable key in assembly entry: {entry}")
+            raise BuildscadAssemblyParseError(f"Empty variable key in assembly entry: {entry}")
         key = pair[:equals_index].strip()
         value = _unescape_value(pair[equals_index + 1 :].strip())
         variables[key] = value
@@ -141,7 +159,7 @@ def _parse_assembly(entry: str) -> Assembly:
 def get_project_root() -> Path:
     root = Path.cwd()
     if not root.joinpath(PROPERTIES_FILE).exists():
-        raise FileNotFoundError(
+        raise BuildscadMissingConfigFile(
             f"{PROPERTIES_FILE} not found in {root}. Run 'buildscad init' first."
         )
     return root
@@ -151,7 +169,7 @@ def load_properties(project_root: Path | None = None) -> dict[str, str]:
     root = project_root or get_project_root()
     props_path = root.joinpath(PROPERTIES_FILE)
     if not props_path.exists():
-        raise FileNotFoundError(f"{PROPERTIES_FILE} not found in {root}")
+        raise BuildscadMissingConfigFile(f"{PROPERTIES_FILE} not found in {root}")
 
     props = Properties()
     with open(props_path, "rb") as f:
@@ -162,6 +180,10 @@ def load_properties(project_root: Path | None = None) -> dict[str, str]:
 def get_property(
     key: str, default: str | None = None, project_root: Path | None = None
 ) -> str | None:
+    if key in ENV_OVERRIDABLE_PROPS:
+        env_value = os.environ.get(key)
+        if env_value is not None:
+            return env_value
     props = load_properties(project_root)
     return props.get(key, default)
 
@@ -195,7 +217,7 @@ def _parse_output_type(value: str) -> OutputType:
         return OutputType(value)
     except ValueError:
         valid = ", ".join([t.value for t in OutputType])
-        raise ValueError(f"'{value}' is not a valid output type. Valid types: {valid}")
+        raise BuildscadInvalidOutputType(value, valid)
 
 
 def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
@@ -206,9 +228,11 @@ def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
         return ColorScheme(colorscheme)
     except ValueError:
         valid = ", ".join([c.value for c in ColorScheme])
-        raise ValueError(
-            f"Invalid {PROP_OPENSCAD_COLORSCHEME} value '{colorscheme}'. Valid schemes: {valid}"
-        )
+        raise BuildscadInvalidColorScheme(colorscheme, valid)
+
+
+def get_openscad_version(project_root: Path | None = None) -> str | None:
+    return get_property(PROP_OPENSCAD_VERSION, project_root=project_root)
 
 
 def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
@@ -216,7 +240,7 @@ def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
         PROP_ASSEMBLIES, DEFAULT_VALUES[PROP_ASSEMBLIES], project_root=project_root
     )
     if assemblies_str is None:
-        raise ValueError("Project properties does not contain an assembly property")
+        raise BuildscadMissingProperty("Project properties does not contain an assembly property")
 
     return [_parse_assembly(a) for a in assemblies_str.split(",") if a.strip()]
 
@@ -228,13 +252,13 @@ def load_deps(project_root: Path | None = None) -> list[dict]:
     deps_path = project_root.joinpath(f"{DEPS_FILE}")
 
     if not deps_path.exists():
-        raise FileNotFoundError(f"{DEPS_FILE} not found in {project_root}.")
+        raise BuildscadMissingConfigFile(f"{DEPS_FILE} not found in {project_root}.")
 
     with open(deps_path) as f:
         deps = json.load(f)
 
     if not isinstance(deps, list):
-        raise ValueError(f"{DEPS_FILE} must contain a JSON array")
+        raise BuildscadInvalidProperty(f"{DEPS_FILE} must contain a JSON array")
 
     return deps
 

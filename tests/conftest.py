@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from buildscad.config import write_properties, write_deps
 from buildscad.cli import cli, logger, ISOFormatter
 
 

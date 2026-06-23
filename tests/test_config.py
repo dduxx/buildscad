@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from buildscad.config import (
@@ -11,6 +9,9 @@ from buildscad.config import (
     write_deps,
     get_project_root,
     get_output_formats,
+    get_openscad_path,
+    get_colorscheme,
+    get_openscad_version,
     _parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -22,9 +23,18 @@ from buildscad.config import (
     PROP_LOG_LEVEL,
     PROP_OPENSCAD_PATH,
     PROP_OUTPUT_FORMAT,
+    PROP_OPENSCAD_COLORSCHEME,
+    PROP_OPENSCAD_VERSION,
     DEFAULT_VALUES,
+    ENV_OVERRIDABLE_PROPS,
 )
 from buildscad.types import OutputType
+from buildscad.error import (
+    BuildscadAssemblyParseError,
+    BuildscadMissingConfigFile,
+    BuildscadInvalidProperty,
+    BuildscadInvalidOutputType,
+)
 
 
 def test_load_properties(initialized_project):
@@ -134,27 +144,29 @@ def test_parse_assembly_escaped_backslash():
 
 
 def test_parse_assembly_missing_closing_bracket():
-    with pytest.raises(ValueError, match="Missing closing bracket"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Missing closing bracket"):
         _parse_assembly("scad/main.scad[var=value")
 
 
 def test_parse_assembly_chars_after_bracket():
-    with pytest.raises(ValueError, match="Unexpected characters after closing bracket"):
+    with pytest.raises(
+        BuildscadAssemblyParseError, match="Unexpected characters after closing bracket"
+    ):
         _parse_assembly("scad/main.scad[var=value]extra")
 
 
 def test_parse_assembly_empty_key():
-    with pytest.raises(ValueError, match="Empty variable key"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Empty variable key"):
         _parse_assembly("scad/main.scad[=value]")
 
 
 def test_parse_assembly_no_equals_in_var():
-    with pytest.raises(ValueError, match="Invalid variable format"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Invalid variable format"):
         _parse_assembly("scad/main.scad[badvar]")
 
 
 def test_parse_assembly_empty_entry():
-    with pytest.raises(ValueError, match="Empty assembly entry"):
+    with pytest.raises(BuildscadAssemblyParseError, match="Empty assembly entry"):
         _parse_assembly("")
 
 
@@ -180,7 +192,7 @@ def test_load_deps_with_entries(project_root):
 
 def test_load_deps_invalid_format(project_root):
     project_root.joinpath("deps.json").write_text('{"not": "an array"}')
-    with pytest.raises(ValueError, match="must contain a JSON array"):
+    with pytest.raises(BuildscadInvalidProperty, match="must contain a JSON array"):
         load_deps(project_root)
 
 
@@ -220,17 +232,17 @@ def test_get_project_root(initialized_project):
 
 
 def test_get_project_root_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="buildscad.properties not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="buildscad.properties not found"):
         get_project_root()
 
 
 def test_load_properties_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="buildscad.properties not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="buildscad.properties not found"):
         load_properties(project_root)
 
 
 def test_load_deps_not_found(project_root):
-    with pytest.raises(FileNotFoundError, match="deps.json not found"):
+    with pytest.raises(BuildscadMissingConfigFile, match="deps.json not found"):
         load_deps(project_root)
 
 
@@ -272,7 +284,7 @@ def test_get_output_formats_cli_multiple(project_root):
 
 
 def test_get_output_formats_invalid_cli(project_root):
-    with pytest.raises(ValueError, match="not a valid output type"):
+    with pytest.raises(BuildscadInvalidOutputType, match="not a valid output type"):
         get_output_formats(cli_types=("invalid",))
 
 
@@ -280,7 +292,7 @@ def test_get_output_formats_invalid_property(project_root):
     project_root.joinpath("buildscad.properties").write_text(
         f"{PROP_PROJECT}=test\n{PROP_OUTPUT_FORMAT}=badformat\n"
     )
-    with pytest.raises(ValueError, match="'badformat' is not a valid output type"):
+    with pytest.raises(BuildscadInvalidOutputType, match="'badformat' is not a valid output type"):
         get_output_formats(project_root=project_root)
 
 
@@ -341,3 +353,52 @@ def test_build_output_filename_no_variables(project_root):
     project_root.joinpath("buildscad.properties").write_text(f"{PROP_ASSEMBLIES}=scad/main.scad\n")
     assemblies = get_assemblies(project_root=project_root)
     assert assemblies[0].get_filename_suffix() == ""
+
+
+def test_get_property_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_LOG_LEVEL, "DEBUG")
+    assert get_property(PROP_LOG_LEVEL, project_root=initialized_project) == "DEBUG"
+
+
+def test_get_openscad_path_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_OPENSCAD_PATH, "/custom/path/openscad")
+    assert get_openscad_path(project_root=initialized_project) == "/custom/path/openscad"
+
+
+def test_get_colorscheme_env_var_override(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_OPENSCAD_COLORSCHEME, "Metallic")
+    assert get_colorscheme(project_root=initialized_project).value == "Metallic"
+
+
+def test_get_property_env_var_takes_precedence_over_file(initialized_project, monkeypatch):
+    initialized_project.joinpath("buildscad.properties").write_text(f"{PROP_LOG_LEVEL}=INFO\n")
+    monkeypatch.setenv(PROP_LOG_LEVEL, "DEBUG")
+    assert get_property(PROP_LOG_LEVEL, project_root=initialized_project) == "DEBUG"
+
+
+def test_get_property_env_var_not_allowed(initialized_project, monkeypatch):
+    monkeypatch.setenv(PROP_PROJECT, "env-project")
+    assert get_property(PROP_PROJECT, project_root=initialized_project) != "env-project"
+
+
+def test_env_overridable_props_constant():
+    assert PROP_LOG_LEVEL in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_PATH in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_COLORSCHEME in ENV_OVERRIDABLE_PROPS
+    assert PROP_PROJECT not in ENV_OVERRIDABLE_PROPS
+    assert PROP_VERSION not in ENV_OVERRIDABLE_PROPS
+    assert PROP_AUTHOR not in ENV_OVERRIDABLE_PROPS
+    assert PROP_ASSEMBLIES not in ENV_OVERRIDABLE_PROPS
+    assert PROP_OUTPUT_FORMAT not in ENV_OVERRIDABLE_PROPS
+    assert PROP_OPENSCAD_VERSION not in ENV_OVERRIDABLE_PROPS
+
+
+def test_get_openscad_version_not_set(initialized_project):
+    assert get_openscad_version(project_root=initialized_project) is None
+
+
+def test_get_openscad_version_set(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_OPENSCAD_VERSION}=2026.06\n"
+    )
+    assert get_openscad_version(project_root=project_root) == "2026.06"

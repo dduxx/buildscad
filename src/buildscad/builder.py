@@ -1,9 +1,21 @@
+import shutil
 import subprocess
 from pathlib import Path
 
-from buildscad.config import get_openscad_path, BUILD_DIR, get_colorscheme, Assembly
-from buildscad.dependencies import get_dependency_paths
+from buildscad.config import (
+    get_openscad_path,
+    BUILD_DIR,
+    get_colorscheme,
+    Assembly,
+    get_openscad_version,
+)
 from buildscad.types import OutputType
+from buildscad.error import (
+    BuildscadOpenSCADNotFound,
+    BuildscadOpenSCADFailed,
+    BuildscadAssemblyFileNotFound,
+)
+from buildscad.version import check_openscad_version
 import logging
 
 logger = logging.getLogger("buildscad")
@@ -18,6 +30,15 @@ def build_assembly(
 ) -> None:
     logger.debug(f"Building assembly {input_path} -> {output_path}")
     openscad = get_openscad_path(project_root)
+
+    openscad_path = Path(openscad)
+    if not openscad_path.exists() and openscad_path.name == openscad:
+        found = shutil.which(openscad)
+        if not found:
+            raise BuildscadOpenSCADNotFound(f"OpenSCAD executable not found: {openscad}")
+
+    if not Path(input_path).exists():
+        raise BuildscadAssemblyFileNotFound(f"Assembly file not found: {input_path}")
 
     cmd = [
         openscad,
@@ -36,8 +57,12 @@ def build_assembly(
     cmd.extend(["-o", output_path, input_path])
 
     logger.debug(f"Running OpenSCAD: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=True, cwd=str(project_root), capture_output=True)
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode().strip() if e.stderr else ""
+        raise BuildscadOpenSCADFailed(cmd, e.returncode, stderr) from e
     logger.debug(f"Finished building assembly {input_path} -> {output_path}")
-    subprocess.run(cmd, check=True, cwd=str(project_root))
 
 
 def build_all(
@@ -45,6 +70,13 @@ def build_all(
 ) -> list[tuple[str, str]]:
     output_dir = project_root.joinpath(BUILD_DIR, output_type.value)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    openscad = get_openscad_path(project_root)
+    required_version = get_openscad_version(project_root)
+    if required_version:
+        logger.debug(f"Checking OpenSCAD version against requirement: {required_version}")
+        check_openscad_version(openscad, required_version)
+        logger.debug("OpenSCAD version check passed")
 
     built = []
     for assembly in assemblies:
