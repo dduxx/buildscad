@@ -16,7 +16,14 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "black>=24.0",
+    "python-semantic-release>=9.0",
 ]
+
+[tool.semantic_release]
+version_variables = ["pyproject.toml:project.version"]
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
 
 [project.scripts]
 buildscad = "buildscad.cli:cli"
