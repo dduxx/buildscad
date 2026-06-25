@@ -52,7 +52,7 @@ def build_assembly(
         cmd.append("--render")
         imagesize = get_imagesize(project_root)
         if imagesize:
-            cmd.extend(["--imagesize", imagesize])
+            cmd.extend(["--imgsize", imagesize])
 
     if variables:
         for name, value in variables.items():
