@@ -13,15 +13,23 @@ A build tool for OpenSCAD projects. Manage dependencies, configure assemblies, a
 Clone the repository first:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/dduxx/buildscad
 cd buildscad
+```
+
+To install a specific version, checkout the corresponding tag:
+
+```bash
+git clone https://github.com/dduxx/buildscad
+cd buildscad
+git checkout v1.0.0
 ```
 
 ### Option 1: Install in a virtual environment (recommended)
 
 ```bash
 # Create and activate a pyenv virtual environment
-pyenv virtualenv 3.14.3 buildscad
+pyenv virtualenv 3.13 buildscad
 pyenv activate buildscad
 
 # Install the project
@@ -179,7 +187,7 @@ my-project/
 
 ```bash
 # Create and activate a pyenv virtual environment
-pyenv virtualenv 3.14.3 buildscad
+pyenv virtualenv 3.13 buildscad
 pyenv activate buildscad
 
 # Install the project in editable mode with dev dependencies
