@@ -358,7 +358,7 @@ def test_build_assembly_png_adds_imagesize(tmp_path):
         build_assembly(str(scad_file), "build/main.png", tmp_path, OutputType.PNG)
 
     cmd = captured[0]
-    assert "--imagesize" in cmd
+    assert "--imgsize" in cmd
     assert "1280,720" in cmd
 
 
