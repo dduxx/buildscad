@@ -114,8 +114,8 @@ A JSON array of dependencies. Each entry specifies a GitHub URL and a git ref (b
 |---------|-------------|
 | `buildscad init [--name NAME]` | Initialize a new project. Creates `buildscad.properties`, `deps.json`, `scad/`, and `.gitignore`. If `--name` is provided, a new directory is created with that name. If omitted, the current working directory is initialized in place and its name is used as the project name. |
 | `buildscad pull [--ignore-cache]` | Download dependencies from `deps.json` into `dependencies/`. `--ignore-cache` forces re-download of existing dependencies. |
-| `buildscad build [-t TYPE]` | Build all configured assemblies into output files in `build/<type>/`. Defaults to `stl`, or uses `BUILDSCAD_OUTPUT_FORMAT` if set. CLI `--type` takes precedence over the property. Automatically pulls dependencies first. Supported types: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast`. Multiple `--type` flags can be specified. |
-| `buildscad clean [--keep-build]` | Remove the `dependencies/` folder and all build output. `--keep-build` preserves build output. |
+| `buildscad build [-t TYPE] [-a ASSEMBLY]` | Build all configured assemblies into output files in `build/<type>/`. Defaults to `stl`, or uses `BUILDSCAD_OUTPUT_FORMAT` if set. CLI `--type` takes precedence over the property. Automatically pulls dependencies first. Supported types: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast`. Multiple `--type` flags can be specified. Use `-a/--assembly` to build specific assemblies instead of all configured assemblies. Multiple `-a` flags and comma-separated values are supported. |
+| `buildscad clean [--keep-deps] [--keep-build]` | Remove the `dependencies/` folder and all build output. `--keep-deps` preserves dependencies. `--keep-build` preserves build output. |
 
 ## Assembly Variables
 
