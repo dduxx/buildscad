@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-06-25)
+
+### Bug Fixes
+
+- Fixing typo in imgsize arg
+  ([`ef5e380`](https://github.com/dduxx/buildscad/commit/ef5e38061003cbbc70472b9d2a0eb3d8e8b997a7))
+
+
 ## v1.2.0 (2026-06-25)
 
 ### Bug Fixes
