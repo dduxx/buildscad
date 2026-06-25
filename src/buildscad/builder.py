@@ -8,6 +8,7 @@ from buildscad.config import (
     get_colorscheme,
     Assembly,
     get_openscad_version,
+    get_imagesize,
 )
 from buildscad.types import OutputType
 from buildscad.error import (
@@ -49,6 +50,9 @@ def build_assembly(
 
     if output_type == OutputType.PNG:
         cmd.append("--render")
+        imagesize = get_imagesize(project_root)
+        if imagesize:
+            cmd.extend(["--imagesize", imagesize])
 
     if variables:
         for name, value in variables.items():

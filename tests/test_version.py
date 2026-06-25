@@ -342,6 +342,26 @@ def test_build_assembly_png_adds_render_flag(tmp_path):
     assert "--render" in cmd
 
 
+def test_build_assembly_png_adds_imagesize(tmp_path):
+    props = tmp_path / "buildscad.properties"
+    props.write_text("BUILDSCAD_PROJECT=test\nBUILDSCAD_OPENSCAD_PATH=/usr/bin/openscad\n")
+    scad_file = tmp_path / "scad" / "main.scad"
+    scad_file.parent.mkdir()
+    scad_file.touch()
+
+    captured = []
+
+    def mock_run(cmd, **kwargs):
+        captured.append(cmd)
+
+    with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+        build_assembly(str(scad_file), "build/main.png", tmp_path, OutputType.PNG)
+
+    cmd = captured[0]
+    assert "--imagesize" in cmd
+    assert "1280,720" in cmd
+
+
 def test_build_assembly_openscad_failed(tmp_path):
     props = tmp_path / "buildscad.properties"
     props.write_text("BUILDSCAD_PROJECT=test\nBUILDSCAD_OPENSCAD_PATH=/usr/bin/openscad\n")
