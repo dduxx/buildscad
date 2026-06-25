@@ -13,6 +13,7 @@ from buildscad.config import (
     load_deps,
     get_project_root,
     get_assemblies,
+    parse_assemblies,
     get_log_level,
     get_output_formats,
     DEFAULT_VALUES,
@@ -147,27 +148,27 @@ def pull(ignore_cache):
 
 
 @cli.command()
+@click.option("--keep-deps", is_flag=True, help="Skip deleting the dependencies folder.")
 @click.option("--keep-build", is_flag=True, help="Skip deleting build output files.")
 @handle_errors
-def clean(keep_build):
+def clean(keep_deps, keep_build):
     """Clean the project dependencies and build output files."""
 
-    logger.info("Cleaning dependencies.")
     project_root = get_project_root()
-    clean_dependencies(project_root)
-    logger.info("Dependencies cleaned.")
 
-    if keep_build:
-        logger.info("Keeping build output.")
-        return
+    if not keep_deps:
+        logger.info("Cleaning dependencies.")
+        clean_dependencies(project_root)
+        logger.info("Dependencies cleaned.")
 
-    logger.info("Cleaning build output.")
-    build_dir = project_root.joinpath(BUILD_DIR)
-    if build_dir.exists():
-        for item in build_dir.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-    logger.info("Finished cleaning build output.")
+    if not keep_build:
+        logger.info("Cleaning build output.")
+        build_dir = project_root.joinpath(BUILD_DIR)
+        if build_dir.exists():
+            for item in build_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+        logger.info("Finished cleaning build output.")
 
 
 @cli.command()
@@ -179,8 +180,16 @@ def clean(keep_build):
     multiple=True,
     help="Output format type. Overrides BUILDSCAD_OUTPUT_FORMAT property. Can be specified multiple times. Valid types: stl, 3mf, amf, off, dxf, svg, png, csg, echo, ast",
 )
+@click.option(
+    "-a",
+    "--assembly",
+    "cli_assemblies",
+    default=None,
+    multiple=True,
+    help="Assembly to build. Uses the same format as BUILDSCAD_ASSEMBLIES. Can be specified multiple times. Overrides the property when provided.",
+)
 @handle_errors
-def build(output_types):
+def build(output_types, cli_assemblies):
     """Build assemblies into output files."""
 
     project_root = get_project_root()
@@ -193,7 +202,11 @@ def build(output_types):
         install_all_dependencies(deps, project_root)
         logger.info("Dependencies ready.")
 
-    assemblies = get_assemblies(project_root)
+    if cli_assemblies:
+        assemblies = parse_assemblies(cli_assemblies)
+    else:
+        assemblies = get_assemblies(project_root)
+
     if not assemblies:
         logger.warning("No assemblies configured.")
         return

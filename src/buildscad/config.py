@@ -113,7 +113,7 @@ def _unescape_value(value: str) -> str:
     return value
 
 
-def _parse_assembly(entry: str) -> Assembly:
+def parse_assembly(entry: str) -> Assembly:
     entry = entry.strip()
 
     if not entry:
@@ -235,6 +235,13 @@ def get_openscad_version(project_root: Path | None = None) -> str | None:
     return get_property(PROP_OPENSCAD_VERSION, project_root=project_root)
 
 
+def parse_assemblies(entries: tuple[str, ...]) -> list[Assembly]:
+    result = []
+    for entry in entries:
+        result.extend([parse_assembly(a) for a in entry.split(",") if a.strip()])
+    return result
+
+
 def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
     assemblies_str = get_property(
         PROP_ASSEMBLIES, DEFAULT_VALUES[PROP_ASSEMBLIES], project_root=project_root
@@ -242,7 +249,7 @@ def get_assemblies(project_root: Path | None = None) -> list[Assembly]:
     if assemblies_str is None:
         raise BuildscadMissingProperty("Project properties does not contain an assembly property")
 
-    return [_parse_assembly(a) for a in assemblies_str.split(",") if a.strip()]
+    return [parse_assembly(a) for a in assemblies_str.split(",") if a.strip()]
 
 
 def load_deps(project_root: Path | None = None) -> list[dict]:
