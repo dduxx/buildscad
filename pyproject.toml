@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "buildscad"
-version = "0.1.0"
+version = "1.1.0"
 description = "A build tool for OpenSCAD projects"
 requires-python = ">=3.10"
 dependencies = [
@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.semantic_release]
-version_variables = ["pyproject.toml:project.version"]
+version_toml = ["pyproject.toml:project.version"]
 
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGELOG.md"
