@@ -12,6 +12,7 @@ from buildscad.config import (
     get_openscad_path,
     get_colorscheme,
     get_openscad_version,
+    get_imagesize,
     parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -25,6 +26,7 @@ from buildscad.config import (
     PROP_OUTPUT_FORMAT,
     PROP_OPENSCAD_COLORSCHEME,
     PROP_OPENSCAD_VERSION,
+    PROP_IMAGESIZE,
     DEFAULT_VALUES,
     ENV_OVERRIDABLE_PROPS,
 )
@@ -381,6 +383,24 @@ def test_get_property_env_var_not_allowed(initialized_project, monkeypatch):
     assert get_property(PROP_PROJECT, project_root=initialized_project) != "env-project"
 
 
+def test_get_imagesize_default(initialized_project):
+    assert get_imagesize(project_root=initialized_project) == "1280,720"
+
+
+def test_get_imagesize_set(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_IMAGESIZE}=1920,1080\n"
+    )
+    assert get_imagesize(project_root=project_root) == "1920,1080"
+
+
+def test_get_imagesize_empty(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_IMAGESIZE}=\n"
+    )
+    assert get_imagesize(project_root=project_root) is None
+
+
 def test_env_overridable_props_constant():
     assert PROP_LOG_LEVEL in ENV_OVERRIDABLE_PROPS
     assert PROP_OPENSCAD_PATH in ENV_OVERRIDABLE_PROPS
@@ -391,6 +411,7 @@ def test_env_overridable_props_constant():
     assert PROP_ASSEMBLIES not in ENV_OVERRIDABLE_PROPS
     assert PROP_OUTPUT_FORMAT not in ENV_OVERRIDABLE_PROPS
     assert PROP_OPENSCAD_VERSION not in ENV_OVERRIDABLE_PROPS
+    assert PROP_IMAGESIZE not in ENV_OVERRIDABLE_PROPS
 
 
 def test_get_openscad_version_not_set(initialized_project):

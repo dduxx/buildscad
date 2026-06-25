@@ -31,6 +31,7 @@ PROP_OPENSCAD_PATH = "BUILDSCAD_OPENSCAD_PATH"
 PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
 PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
 PROP_OPENSCAD_VERSION = "BUILDSCAD_OPENSCAD_VERSION"
+PROP_IMAGESIZE = "BUILDSCAD_IMAGESIZE"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
 OPTIONAL_PROPS = [
@@ -39,6 +40,7 @@ OPTIONAL_PROPS = [
     PROP_OUTPUT_FORMAT,
     PROP_OPENSCAD_COLORSCHEME,
     PROP_OPENSCAD_VERSION,
+    PROP_IMAGESIZE,
 ]
 ENV_OVERRIDABLE_PROPS = [
     PROP_LOG_LEVEL,
@@ -55,6 +57,7 @@ DEFAULT_VALUES = {
     PROP_OPENSCAD_PATH: "/usr/bin/openscad",
     PROP_OUTPUT_FORMAT: "stl",
     PROP_OPENSCAD_COLORSCHEME: "Cornfield",
+    PROP_IMAGESIZE: "1280,720",
 }
 
 SCAD_DIR = "scad"
@@ -233,6 +236,15 @@ def get_colorscheme(project_root: Path | None = None) -> ColorScheme:
 
 def get_openscad_version(project_root: Path | None = None) -> str | None:
     return get_property(PROP_OPENSCAD_VERSION, project_root=project_root)
+
+
+def get_imagesize(project_root: Path | None = None) -> str | None:
+    value = get_property(
+        PROP_IMAGESIZE, default=DEFAULT_VALUES[PROP_IMAGESIZE], project_root=project_root
+    )
+    if not value:
+        return None
+    return value
 
 
 def parse_assemblies(entries: tuple[str, ...]) -> list[Assembly]:
