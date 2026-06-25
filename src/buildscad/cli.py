@@ -2,6 +2,8 @@ import functools
 import logging
 import sys
 import traceback
+from importlib.metadata import version
+
 import click
 from pathlib import Path
 from copy import deepcopy
@@ -77,6 +79,7 @@ def configure_logging():
 
 
 @click.group()
+@click.version_option(version=version("buildscad"))
 def cli():
     """buildscad - A build tool for OpenSCAD projects."""
 
