@@ -130,6 +130,46 @@ def test_clean(project_root, log_output):
         assert not build_dir.joinpath("stl", "test.stl").exists()
 
 
+def test_clean_keeps_deps_when_flag_set(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        deps_dir = Path("dependencies")
+        deps_dir.mkdir()
+        deps_dir.joinpath("fake:dep:v1").mkdir()
+        build_dir = Path("build")
+        build_dir.joinpath("stl").mkdir(parents=True)
+        build_dir.joinpath("stl", "test.stl").write_text("fake stl")
+
+        runner.invoke(cli, ["clean", "--keep-deps"])
+        output = log_output.getvalue()
+        assert "Dependencies cleaned." not in output
+        assert "Cleaning build output." in output
+        assert "Finished cleaning build output." in output
+        assert deps_dir.joinpath("fake:dep:v1").exists()
+        assert not build_dir.joinpath("stl", "test.stl").exists()
+
+
+def test_clean_keeps_both(project_root, log_output):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        deps_dir = Path("dependencies")
+        deps_dir.mkdir()
+        deps_dir.joinpath("fake:dep:v1").mkdir()
+        build_dir = Path("build")
+        build_dir.joinpath("stl").mkdir(parents=True)
+        build_dir.joinpath("stl", "test.stl").write_text("fake stl")
+
+        runner.invoke(cli, ["clean", "--keep-deps", "--keep-build"])
+        output = log_output.getvalue()
+        assert "Dependencies cleaned." not in output
+        assert "Cleaning build output." not in output
+        assert "Finished cleaning build output." not in output
+        assert deps_dir.joinpath("fake:dep:v1").exists()
+        assert build_dir.joinpath("stl", "test.stl").exists()
+
+
 def test_clean_keeps_build_when_flag_set(project_root, log_output):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
@@ -144,7 +184,7 @@ def test_clean_keeps_build_when_flag_set(project_root, log_output):
         runner.invoke(cli, ["clean", "--keep-build"])
         output = log_output.getvalue()
         assert "Dependencies cleaned." in output
-        assert "Keeping build output." in output
+        assert "Cleaning build output." not in output
         assert "Finished cleaning build output." not in output
         assert build_dir.joinpath("stl", "test.stl").exists()
 
@@ -333,6 +373,109 @@ def test_build_output_filename_without_variables(project_root):
         output_idx = cmd.index("-o")
         output_path = Path(cmd[output_idx + 1])
         assert output_path.name == "main.stl"
+
+
+def test_build_assembly_single_flag(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/bracket.scad").write_text("")
+        with patch("buildscad.builder.subprocess.run"):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "-a", "scad/bracket.scad"])
+        assert result.exit_code == 0
+        assert "1 assemblies" in result.output
+        assert "stl" in result.output
+
+
+def test_build_assembly_multiple_flags(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/bracket.scad").write_text("")
+        with patch("buildscad.builder.subprocess.run"):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(
+                    cli,
+                    ["build", "--type", "stl", "-a", "scad/main.scad", "-a", "scad/bracket.scad"],
+                )
+        assert result.exit_code == 0
+        assert "2 assemblies" in result.output
+
+
+def test_build_assembly_flag_with_variables(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(
+                    cli,
+                    [
+                        "build",
+                        "--type",
+                        "stl",
+                        "-a",
+                        "scad/main.scad[threads=metric;diameter=10]",
+                    ],
+                )
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        cmd = captured_calls[0]
+        assert "-D" in cmd
+        threads_idx = cmd.index("-D")
+        assert cmd[threads_idx + 1] == "threads=metric"
+        diameter_idx = cmd.index("-D", threads_idx + 1)
+        assert cmd[diameter_idx + 1] == "diameter=10"
+
+
+def test_build_assembly_flag_overrides_property(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/override.scad").write_text("")
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_ASSEMBLIES}=scad/main.scad,scad/override.scad\n"
+        )
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "-a", "scad/override.scad"])
+        assert result.exit_code == 0
+        assert "1 assemblies" in result.output
+        assert len(captured_calls) == 1
+        output_idx = captured_calls[0].index("-o")
+        assert "override.stl" in captured_calls[0][output_idx + 1]
+
+
+def test_build_assembly_flag_comma_separated(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/bracket.scad").write_text("")
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(
+                    cli, ["build", "--type", "stl", "-a", "scad/main.scad,scad/bracket.scad"]
+                )
+        assert result.exit_code == 0
+        assert "2 assemblies" in result.output
+        assert len(captured_calls) == 2
 
 
 def test_buildscad_error_logs_message_at_error_level(project_root, log_output):

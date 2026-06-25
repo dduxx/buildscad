@@ -12,7 +12,7 @@ from buildscad.config import (
     get_openscad_path,
     get_colorscheme,
     get_openscad_version,
-    _parse_assembly,
+    parse_assembly,
     _unescape_value,
     _sanitize_filename,
     Assembly,
@@ -100,18 +100,18 @@ def test_get_assemblies_empty_brackets(project_root):
     assert assemblies == [Assembly(path="scad/main.scad", variables={})]
 
 
-def test_parse_assembly_no_brackets():
-    result = _parse_assembly("scad/main.scad")
+def testparse_assembly_no_brackets():
+    result = parse_assembly("scad/main.scad")
     assert result == Assembly(path="scad/main.scad", variables={})
 
 
-def test_parse_assembly_single_var():
-    result = _parse_assembly("scad/main.scad[threads=metric]")
+def testparse_assembly_single_var():
+    result = parse_assembly("scad/main.scad[threads=metric]")
     assert result == Assembly(path="scad/main.scad", variables={"threads": "metric"})
 
 
-def test_parse_assembly_multiple_vars():
-    result = _parse_assembly("scad/main.scad[threads=metric;diameter=8;count=3]")
+def testparse_assembly_multiple_vars():
+    result = parse_assembly("scad/main.scad[threads=metric;diameter=8;count=3]")
     assert result == Assembly(
         path="scad/main.scad",
         variables={
@@ -122,8 +122,8 @@ def test_parse_assembly_multiple_vars():
     )
 
 
-def test_parse_assembly_escaped_semicolon():
-    result = _parse_assembly(r"scad/main.scad[path=C:\path\to\file;name=test\;special]")
+def testparse_assembly_escaped_semicolon():
+    result = parse_assembly(r"scad/main.scad[path=C:\path\to\file;name=test\;special]")
     assert result == Assembly(
         path="scad/main.scad",
         variables={
@@ -133,41 +133,41 @@ def test_parse_assembly_escaped_semicolon():
     )
 
 
-def test_parse_assembly_escaped_equals():
-    result = _parse_assembly(r"scad/main.scad[expr=a\=b]")
+def testparse_assembly_escaped_equals():
+    result = parse_assembly(r"scad/main.scad[expr=a\=b]")
     assert result == Assembly(path="scad/main.scad", variables={"expr": "a=b"})
 
 
-def test_parse_assembly_escaped_backslash():
-    result = _parse_assembly(r"scad/main.scad[path=C:\\\\path]")
+def testparse_assembly_escaped_backslash():
+    result = parse_assembly(r"scad/main.scad[path=C:\\\\path]")
     assert result == Assembly(path="scad/main.scad", variables={"path": r"C:\\path"})
 
 
-def test_parse_assembly_missing_closing_bracket():
+def testparse_assembly_missing_closing_bracket():
     with pytest.raises(BuildscadAssemblyParseError, match="Missing closing bracket"):
-        _parse_assembly("scad/main.scad[var=value")
+        parse_assembly("scad/main.scad[var=value")
 
 
-def test_parse_assembly_chars_after_bracket():
+def testparse_assembly_chars_after_bracket():
     with pytest.raises(
         BuildscadAssemblyParseError, match="Unexpected characters after closing bracket"
     ):
-        _parse_assembly("scad/main.scad[var=value]extra")
+        parse_assembly("scad/main.scad[var=value]extra")
 
 
-def test_parse_assembly_empty_key():
+def testparse_assembly_empty_key():
     with pytest.raises(BuildscadAssemblyParseError, match="Empty variable key"):
-        _parse_assembly("scad/main.scad[=value]")
+        parse_assembly("scad/main.scad[=value]")
 
 
-def test_parse_assembly_no_equals_in_var():
+def testparse_assembly_no_equals_in_var():
     with pytest.raises(BuildscadAssemblyParseError, match="Invalid variable format"):
-        _parse_assembly("scad/main.scad[badvar]")
+        parse_assembly("scad/main.scad[badvar]")
 
 
-def test_parse_assembly_empty_entry():
+def testparse_assembly_empty_entry():
     with pytest.raises(BuildscadAssemblyParseError, match="Empty assembly entry"):
-        _parse_assembly("")
+        parse_assembly("")
 
 
 def test_unescape_value():
