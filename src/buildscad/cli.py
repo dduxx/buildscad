@@ -18,6 +18,7 @@ from buildscad.config import (
     parse_assemblies,
     get_log_level,
     get_output_formats,
+    get_worker_threads,
     DEFAULT_VALUES,
     PROP_PROJECT,
     PROPERTIES_FILE,
@@ -191,8 +192,15 @@ def clean(keep_deps, keep_build):
     multiple=True,
     help="Assembly to build. Uses the same format as BUILDSCAD_ASSEMBLIES. Can be specified multiple times. Overrides the property when provided.",
 )
+@click.option(
+    "-mt",
+    "--multithread",
+    default=None,
+    type=int,
+    help="Number of threads to use when building assemblies. Overrides BUILDSCAD_THREADS property.",
+)
 @handle_errors
-def build(output_types, cli_assemblies):
+def build(output_types, cli_assemblies, multithread):
     """Build assemblies into output files."""
 
     project_root = get_project_root()
@@ -216,10 +224,8 @@ def build(output_types, cli_assemblies):
 
     formats = get_output_formats(output_types, project_root)
 
-    for format in formats:
-        logger.info(f"Building {len(assemblies)} assemblies as {format.value}...")
-        build_all(assemblies, project_root, format)
-        logger.info(f"Built {len(assemblies)} assemblies as {format.value}.")
+    threads = multithread if multithread is not None else get_worker_threads(project_root)
+    build_all(assemblies, project_root, formats, threads)
 
 
 if __name__ == "__main__":

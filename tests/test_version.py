@@ -12,10 +12,15 @@ from buildscad.version import (
 )
 from buildscad.error import BuildscadOpenSCADVersionMismatch, BuildscadOpenSCADFailed
 from pathlib import Path
-from buildscad.builder import build_assembly, build_all
+from concurrent.futures import ThreadPoolExecutor
+from buildscad.builder import build_assembly, build_all, _build_task
 from buildscad.config import Assembly
 from buildscad.types import OutputType
-from buildscad.error import BuildscadOpenSCADNotFound, BuildscadAssemblyFileNotFound
+from buildscad.error import (
+    BuildscadOpenSCADNotFound,
+    BuildscadAssemblyFileNotFound,
+    BuildscadOpenSCADFailed,
+)
 
 # ---------------------------------------------------------------------------
 # parse_version
@@ -389,25 +394,24 @@ def test_build_all_creates_output_dir(tmp_path):
 
     with patch("buildscad.builder.subprocess.run"):
         assemblies = [Assembly(path=str(scad_file), variables={})]
-        build_all(assemblies, tmp_path, OutputType.STL)
+        build_all(assemblies, tmp_path, [OutputType.STL])
 
     assert (tmp_path / "build" / "stl").exists()
 
 
-def test_build_all_returns_built_list(tmp_path):
-    props = tmp_path / "buildscad.properties"
+def test_build_all_multi_format(tmp_path):
+    props = tmp_path.joinpath("buildscad.properties")
     props.write_text("BUILDSCAD_PROJECT=test\nBUILDSCAD_OPENSCAD_PATH=/usr/bin/openscad\n")
-    scad_file = tmp_path / "scad" / "main.scad"
+    scad_file = tmp_path.joinpath("scad", "main.scad")
     scad_file.parent.mkdir()
     scad_file.touch()
 
     with patch("buildscad.builder.subprocess.run"):
         assemblies = [Assembly(path=str(scad_file), variables={})]
-        built = build_all(assemblies, tmp_path, OutputType.STL)
+        build_all(assemblies, tmp_path, [OutputType.STL, OutputType.THREE_MF])
 
-    assert len(built) == 1
-    assert built[0][0] == str(scad_file)
-    assert built[0][1].endswith("main.stl")
+    assert tmp_path.joinpath("build", "stl").exists()
+    assert tmp_path.joinpath("build", "3mf").exists()
 
 
 def test_build_all_with_variables(tmp_path):
@@ -424,7 +428,7 @@ def test_build_all_with_variables(tmp_path):
 
     with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
         assemblies = [Assembly(path=str(scad_file), variables={"threads": "metric"})]
-        build_all(assemblies, tmp_path, OutputType.STL)
+        build_all(assemblies, tmp_path, [OutputType.STL])
 
     cmd = captured[0]
     d_idx = cmd.index("-D")
@@ -445,7 +449,7 @@ def test_build_all_version_check_when_set(tmp_path):
     with patch("buildscad.builder.subprocess.run"):
         with patch("buildscad.version.get_installed_openscad_version", return_value="2022.01"):
             assemblies = [Assembly(path=str(scad_file), variables={})]
-            build_all(assemblies, tmp_path, OutputType.STL)
+            build_all(assemblies, tmp_path, [OutputType.STL])
 
 
 def test_build_all_version_check_fails(tmp_path):
@@ -463,4 +467,39 @@ def test_build_all_version_check_fails(tmp_path):
         with patch("buildscad.version.get_installed_openscad_version", return_value="2021.01"):
             with pytest.raises(BuildscadOpenSCADVersionMismatch):
                 assemblies = [Assembly(path=str(scad_file), variables={})]
-                build_all(assemblies, tmp_path, OutputType.STL)
+                build_all(assemblies, tmp_path, [OutputType.STL])
+
+
+def test_build_all_threaded_uses_thread_pool(tmp_path):
+    props = tmp_path.joinpath("buildscad.properties")
+    props.write_text("BUILDSCAD_PROJECT=test\nBUILDSCAD_OPENSCAD_PATH=/usr/bin/openscad\n")
+    scad_file = tmp_path.joinpath("scad", "main.scad")
+    scad_file.parent.mkdir()
+    scad_file.touch()
+
+    with patch("buildscad.builder.subprocess.run"):
+        with patch("buildscad.builder.ThreadPoolExecutor", wraps=ThreadPoolExecutor) as mock_pool:
+            assemblies = [Assembly(path=str(scad_file), variables={})]
+            build_all(assemblies, tmp_path, [OutputType.STL, OutputType.THREE_MF], threads=2)
+
+        mock_pool.assert_called_once_with(max_workers=2)
+
+
+def test_build_all_threaded_exception_cancels_remaining(tmp_path):
+    props = tmp_path.joinpath("buildscad.properties")
+    props.write_text("BUILDSCAD_PROJECT=test\nBUILDSCAD_OPENSCAD_PATH=/usr/bin/openscad\n")
+    scad_file = tmp_path.joinpath("scad", "main.scad")
+    scad_file.parent.mkdir()
+    scad_file.touch()
+
+    call_count = [0]
+
+    def mock_run_fails_after_first(cmd, **kwargs):
+        call_count[0] += 1
+        if call_count[0] > 1:
+            raise subprocess.CalledProcessError(1, cmd, stderr=b"fail")
+
+    with patch("buildscad.builder.subprocess.run", side_effect=mock_run_fails_after_first):
+        assemblies = [Assembly(path=str(scad_file), variables={})]
+        with pytest.raises(BuildscadOpenSCADFailed, match="fail"):
+            build_all(assemblies, tmp_path, [OutputType.STL, OutputType.THREE_MF], threads=2)

@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from buildscad.config import (
@@ -70,10 +71,14 @@ def build_assembly(
 
 
 def build_all(
-    assemblies: list[Assembly], project_root: Path, output_type: OutputType
-) -> list[tuple[str, str]]:
-    output_dir = project_root.joinpath(BUILD_DIR, output_type.value)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    assemblies: list[Assembly],
+    project_root: Path,
+    output_types: list[OutputType],
+    threads: int = 1,
+) -> None:
+    for output_type in output_types:
+        output_dir = project_root.joinpath(BUILD_DIR, output_type.value)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     openscad = get_openscad_path(project_root)
     required_version = get_openscad_version(project_root)
@@ -82,16 +87,57 @@ def build_all(
         check_openscad_version(openscad, required_version)
         logger.debug("OpenSCAD version check passed")
 
-    built = []
+    tasks = []
     for assembly in assemblies:
-        input_path = Path(assembly.path)
-        output_name = input_path.stem + assembly.get_filename_suffix() + "." + output_type.value
-        output_path = output_dir.joinpath(input_path.parent, output_name)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        for output_type in output_types:
+            input_path = Path(assembly.path)
+            output_name = input_path.stem + assembly.get_filename_suffix() + "." + output_type.value
+            output_dir = project_root.joinpath(BUILD_DIR, output_type.value, input_path.parent)
+            output_path = str(output_dir / output_name)
+            tasks.append((input_path, output_path, output_type, assembly.variables))
 
-        build_assembly(
-            str(input_path), str(output_path), project_root, output_type, assembly.variables
+    total = len(tasks)
+    formats_str = ", ".join(ot.value for ot in output_types)
+    use_threads = threads > 1 and total > 1
+
+    if use_threads:
+        logger.info(
+            f"Building {len(assemblies)} assemblies as {formats_str} with {threads} threads..."
         )
-        built.append((str(input_path), str(output_path)))
+    else:
+        logger.info(f"Building {len(assemblies)} assemblies as {formats_str}...")
 
-    return built
+    if use_threads:
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = {
+                executor.submit(
+                    _build_task,
+                    input_path,
+                    output_path,
+                    project_root,
+                    output_type,
+                    variables,
+                ): (input_path, output_type)
+                for input_path, output_path, output_type, variables in tasks
+            }
+            try:
+                for future in as_completed(futures):
+                    future.result()
+            except Exception:
+                for future in futures:
+                    future.cancel()
+                raise
+    else:
+        for input_path, output_path, output_type, variables in tasks:
+            _build_task(input_path, output_path, project_root, output_type, variables)
+
+
+def _build_task(
+    input_path: Path,
+    output_path: str,
+    project_root: Path,
+    output_type: OutputType,
+    variables: dict[str, str],
+) -> None:
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    build_assembly(str(input_path), output_path, project_root, output_type, variables)

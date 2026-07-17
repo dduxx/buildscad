@@ -13,6 +13,7 @@ from buildscad.config import (
     get_colorscheme,
     get_openscad_version,
     get_imagesize,
+    get_worker_threads,
     parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -27,6 +28,7 @@ from buildscad.config import (
     PROP_OPENSCAD_COLORSCHEME,
     PROP_OPENSCAD_VERSION,
     PROP_IMAGESIZE,
+    PROP_THREADS,
     DEFAULT_VALUES,
     ENV_OVERRIDABLE_PROPS,
 )
@@ -423,3 +425,38 @@ def test_get_openscad_version_set(project_root):
         f"{PROP_PROJECT}=test\n{PROP_OPENSCAD_VERSION}=2026.06\n"
     )
     assert get_openscad_version(project_root=project_root) == "2026.06"
+
+
+def test_get_worker_threads_default(initialized_project):
+    assert get_worker_threads(project_root=initialized_project) == 1
+
+
+def test_get_worker_threads_set(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_THREADS}=4\n"
+    )
+    assert get_worker_threads(project_root=project_root) == 4
+
+
+def test_get_worker_threads_not_integer(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_THREADS}=abc\n"
+    )
+    with pytest.raises(BuildscadInvalidProperty, match="must be an integer"):
+        get_worker_threads(project_root=project_root)
+
+
+def test_get_worker_threads_zero(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_THREADS}=0\n"
+    )
+    with pytest.raises(BuildscadInvalidProperty, match="must be at least 1"):
+        get_worker_threads(project_root=project_root)
+
+
+def test_get_worker_threads_negative(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_THREADS}=-3\n"
+    )
+    with pytest.raises(BuildscadInvalidProperty, match="must be at least 1"):
+        get_worker_threads(project_root=project_root)

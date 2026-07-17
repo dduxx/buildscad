@@ -32,6 +32,7 @@ PROP_OUTPUT_FORMAT = "BUILDSCAD_OUTPUT_FORMAT"
 PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
 PROP_OPENSCAD_VERSION = "BUILDSCAD_OPENSCAD_VERSION"
 PROP_IMAGESIZE = "BUILDSCAD_IMAGESIZE"
+PROP_THREADS = "BUILDSCAD_THREADS"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
 OPTIONAL_PROPS = [
@@ -41,6 +42,7 @@ OPTIONAL_PROPS = [
     PROP_OPENSCAD_COLORSCHEME,
     PROP_OPENSCAD_VERSION,
     PROP_IMAGESIZE,
+    PROP_THREADS,
 ]
 ENV_OVERRIDABLE_PROPS = [
     PROP_LOG_LEVEL,
@@ -58,6 +60,7 @@ DEFAULT_VALUES = {
     PROP_OUTPUT_FORMAT: "stl",
     PROP_OPENSCAD_COLORSCHEME: "Cornfield",
     PROP_IMAGESIZE: "1280,720",
+    PROP_THREADS: "1",
 }
 
 SCAD_DIR = "scad"
@@ -245,6 +248,19 @@ def get_imagesize(project_root: Path | None = None) -> str | None:
     if not value:
         return None
     return value
+
+
+def get_worker_threads(project_root: Path | None = None) -> int:
+    value = get_property(
+        PROP_THREADS, default=DEFAULT_VALUES[PROP_THREADS], project_root=project_root
+    )
+    try:
+        threads = int(value)
+    except (ValueError, TypeError):
+        raise BuildscadInvalidProperty(f"{PROP_THREADS} must be an integer, got '{value}'")
+    if threads < 1:
+        raise BuildscadInvalidProperty(f"{PROP_THREADS} must be at least 1, got {threads}")
+    return threads
 
 
 def parse_assemblies(entries: tuple[str, ...]) -> list[Assembly]:
