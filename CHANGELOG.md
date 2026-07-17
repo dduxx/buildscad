@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-07-17)
+
+### Features
+
+- Added support for multi threading builds
+  ([`b19d175`](https://github.com/dduxx/buildscad/commit/b19d1756d05360bc170a1a81bc498a32af94cfe6))
+
+
 ## v1.2.1 (2026-06-25)
 
 ### Bug Fixes
