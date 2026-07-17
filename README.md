@@ -59,6 +59,7 @@ buildscad build
 
 # Build assemblies into a different format
 buildscad build --type 3mf
+
 ```
 
 ## Configuration
@@ -78,6 +79,7 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 | `BUILDSCAD_OUTPUT_FORMAT` | No | `stl` | Default output format(s), comma-separated: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast` |
 | `BUILDSCAD_OPENSCAD_COLORSCHEME` | No | `Cornfield` | OpenSCAD color scheme: `Cornfield`, `Sunset`, `Metallic`, `Starlight`, `BeforeDawn`, `Nature`, `DeepOcean`, `Solarized` |
 | `BUILDSCAD_IMAGESIZE` | No | `1280,720` | PNG export resolution as `width,height`. Only applies when output format includes `png`. |
+| `BUILDSCAD_THREADS` | No | `1` | Number of worker threads to use when building assemblies. Each thread invokes a separate OpenSCAD process. Set higher to build multiple assemblies and/or output formats in parallel. Must be an integer >= 1. |
 | `BUILDSCAD_OPENSCAD_VERSION` | No | — | Required OpenSCAD version. Supports exact match (`2021.01`), minimum (`>=2021.01`), maximum (`<=2021.01`), or comma-separated ranges (`>=2021.01,<=2026.06`). If set, the build will fail if the installed OpenSCAD version does not match. |
 
 Optional properties are commented out by default. Uncomment them to use.
@@ -123,7 +125,7 @@ A JSON array of dependencies. Each entry specifies a GitHub URL and a git ref (b
 |---------|-------------|
 | `buildscad init [--name NAME]` | Initialize a new project. Creates `buildscad.properties`, `deps.json`, `scad/`, and `.gitignore`. If `--name` is provided, a new directory is created with that name. If omitted, the current working directory is initialized in place and its name is used as the project name. |
 | `buildscad pull [--ignore-cache]` | Download dependencies from `deps.json` into `dependencies/`. `--ignore-cache` forces re-download of existing dependencies. |
-| `buildscad build [-t TYPE] [-a ASSEMBLY]` | Build all configured assemblies into output files in `build/<type>/`. Defaults to `stl`, or uses `BUILDSCAD_OUTPUT_FORMAT` if set. CLI `--type` takes precedence over the property. Automatically pulls dependencies first. Supported types: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast`. Multiple `--type` flags can be specified. Use `-a/--assembly` to build specific assemblies instead of all configured assemblies. Multiple `-a` flags and comma-separated values are supported. |
+| `buildscad build [-t TYPE] [-a ASSEMBLY] [-mt N]` | Build all configured assemblies into output files in `build/<type>/`. Defaults to `stl`, or uses `BUILDSCAD_OUTPUT_FORMAT` if set. CLI `--type` takes precedence over the property. Automatically pulls dependencies first. Supported types: `stl`, `3mf`, `amf`, `off`, `dxf`, `svg`, `png`, `csg`, `echo`, `ast`. Multiple `--type` flags can be specified. Use `-a/--assembly` to build specific assemblies instead of all configured assemblies. Multiple `-a` flags and comma-separated values are supported. Use `-mt/--multithread` to set the number of parallel workers; overrides `BUILDSCAD_THREADS`. |
 | `buildscad clean [--keep-deps] [--keep-build]` | Remove the `dependencies/` folder and all build output. `--keep-deps` preserves dependencies. `--keep-build` preserves build output. |
 
 ## Assembly Variables
