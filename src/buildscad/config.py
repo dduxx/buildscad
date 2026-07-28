@@ -33,6 +33,7 @@ PROP_OPENSCAD_COLORSCHEME = "BUILDSCAD_OPENSCAD_COLORSCHEME"
 PROP_OPENSCAD_VERSION = "BUILDSCAD_OPENSCAD_VERSION"
 PROP_IMAGESIZE = "BUILDSCAD_IMAGESIZE"
 PROP_THREADS = "BUILDSCAD_THREADS"
+PROP_ENABLE_EXPERIMENTAL = "BUILDSCAD_ENABLE_EXPERIMENTAL"
 
 REQUIRED_PROPS = [PROP_PROJECT, PROP_VERSION, PROP_AUTHOR, PROP_ASSEMBLIES]
 OPTIONAL_PROPS = [
@@ -43,6 +44,7 @@ OPTIONAL_PROPS = [
     PROP_OPENSCAD_VERSION,
     PROP_IMAGESIZE,
     PROP_THREADS,
+    PROP_ENABLE_EXPERIMENTAL,
 ]
 ENV_OVERRIDABLE_PROPS = [
     PROP_LOG_LEVEL,
@@ -61,6 +63,7 @@ DEFAULT_VALUES = {
     PROP_OPENSCAD_COLORSCHEME: "Cornfield",
     PROP_IMAGESIZE: "1280,720",
     PROP_THREADS: "1",
+    PROP_ENABLE_EXPERIMENTAL: "false",
 }
 
 SCAD_DIR = "scad"
@@ -261,6 +264,15 @@ def get_worker_threads(project_root: Path | None = None) -> int:
     if threads < 1:
         raise BuildscadInvalidProperty(f"{PROP_THREADS} must be at least 1, got {threads}")
     return threads
+
+
+def is_experimental_enabled(project_root: Path | None = None) -> bool:
+    value = get_property(
+        PROP_ENABLE_EXPERIMENTAL,
+        default=DEFAULT_VALUES[PROP_ENABLE_EXPERIMENTAL],
+        project_root=project_root,
+    )
+    return value.lower() == "true"
 
 
 def parse_assemblies(entries: tuple[str, ...]) -> list[Assembly]:

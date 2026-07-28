@@ -14,6 +14,7 @@ from buildscad.config import (
     get_openscad_version,
     get_imagesize,
     get_worker_threads,
+    is_experimental_enabled,
     parse_assembly,
     _unescape_value,
     _sanitize_filename,
@@ -29,6 +30,7 @@ from buildscad.config import (
     PROP_OPENSCAD_VERSION,
     PROP_IMAGESIZE,
     PROP_THREADS,
+    PROP_ENABLE_EXPERIMENTAL,
     DEFAULT_VALUES,
     ENV_OVERRIDABLE_PROPS,
 )
@@ -460,3 +462,33 @@ def test_get_worker_threads_negative(project_root):
     )
     with pytest.raises(BuildscadInvalidProperty, match="must be at least 1"):
         get_worker_threads(project_root=project_root)
+
+
+def test_is_experimental_enabled_default(initialized_project):
+    assert is_experimental_enabled(project_root=initialized_project) is False
+
+
+def test_is_experimental_enabled_true(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_ENABLE_EXPERIMENTAL}=true\n"
+    )
+    assert is_experimental_enabled(project_root=project_root) is True
+
+
+def test_is_experimental_enabled_false(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_ENABLE_EXPERIMENTAL}=false\n"
+    )
+    assert is_experimental_enabled(project_root=project_root) is False
+
+
+def test_is_experimental_enabled_case_insensitive(project_root):
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_ENABLE_EXPERIMENTAL}=TRUE\n"
+    )
+    assert is_experimental_enabled(project_root=project_root) is True
+
+    project_root.joinpath("buildscad.properties").write_text(
+        f"{PROP_PROJECT}=test\n{PROP_ENABLE_EXPERIMENTAL}=True\n"
+    )
+    assert is_experimental_enabled(project_root=project_root) is True

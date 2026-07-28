@@ -81,6 +81,7 @@ Java-style properties file. All property names use the `BUILDSCAD_` prefix.
 | `BUILDSCAD_IMAGESIZE` | No | `1280,720` | PNG export resolution as `width,height`. Only applies when output format includes `png`. |
 | `BUILDSCAD_THREADS` | No | `1` | Number of worker threads to use when building assemblies. Each thread invokes a separate OpenSCAD process. Set higher to build multiple assemblies and/or output formats in parallel. Must be an integer >= 1. |
 | `BUILDSCAD_OPENSCAD_VERSION` | No | — | Required OpenSCAD version. Supports exact match (`2021.01`), minimum (`>=2021.01`), maximum (`<=2021.01`), or comma-separated ranges (`>=2021.01,<=2026.06`). If set, the build will fail if the installed OpenSCAD version does not match. |
+| `BUILDSCAD_ENABLE_EXPERIMENTAL` | No | — | When set to `true`, passes `--enable=all` to OpenSCAD to enable all experimental features. |
 
 Optional properties are commented out by default. Uncomment them to use.
 
