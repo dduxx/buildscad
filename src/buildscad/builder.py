@@ -10,6 +10,7 @@ from buildscad.config import (
     Assembly,
     get_openscad_version,
     get_imagesize,
+    is_experimental_enabled,
 )
 from buildscad.types import OutputType
 from buildscad.error import (
@@ -48,6 +49,9 @@ def build_assembly(
         "--colorscheme",
         get_colorscheme(project_root).value,
     ]
+
+    if is_experimental_enabled(project_root):
+        cmd.append("--enable=all")
 
     if output_type == OutputType.PNG:
         cmd.append("--render")
