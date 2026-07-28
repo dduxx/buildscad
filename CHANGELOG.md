@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-07-28)
+
+### Features
+
+- Added support for enabling all experimental features
+  ([`df308cd`](https://github.com/dduxx/buildscad/commit/df308cd0e7285b8a1a66fe6712159da45497873c))
+
+
 ## v1.3.0 (2026-07-17)
 
 ### Features
