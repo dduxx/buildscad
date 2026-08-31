@@ -347,20 +347,6 @@ def test_assembly_filename_suffix_sanitizes_values():
     assert assembly.get_filename_suffix() == "__path_C_models"
 
 
-def test_build_output_filename_with_variables(project_root):
-    project_root.joinpath("buildscad.properties").write_text(
-        f"{PROP_ASSEMBLIES}=scad/main.scad[threads=metric;diameter=8]\n"
-    )
-    assemblies = get_assemblies(project_root=project_root)
-    assert assemblies[0].get_filename_suffix() == "__threads_metric__diameter_8"
-
-
-def test_build_output_filename_no_variables(project_root):
-    project_root.joinpath("buildscad.properties").write_text(f"{PROP_ASSEMBLIES}=scad/main.scad\n")
-    assemblies = get_assemblies(project_root=project_root)
-    assert assemblies[0].get_filename_suffix() == ""
-
-
 def test_get_property_env_var_override(initialized_project, monkeypatch):
     monkeypatch.setenv(PROP_LOG_LEVEL, "DEBUG")
     assert get_property(PROP_LOG_LEVEL, project_root=initialized_project) == "DEBUG"

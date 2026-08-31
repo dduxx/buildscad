@@ -114,24 +114,6 @@ class BuildscadOpenSCADVersionMismatch(BuildscadBuildError):
         super().__init__(self.message)
 
 
-class BuildscadFileError(BuildscadError):
-    """Base exception for file system operation errors."""
-
-    pass
-
-
-class BuildscadPermissionDenied(BuildscadFileError):
-    """Raised when a file system operation is denied due to permissions."""
-
-    pass
-
-
-class BuildscadDiskFull(BuildscadFileError):
-    """Raised when a write operation fails due to insufficient disk space."""
-
-    pass
-
-
 class BuildscadInvalidOutputType(BuildscadError):
     """Raised when an output type string is not valid."""
 

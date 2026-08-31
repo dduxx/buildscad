@@ -14,9 +14,6 @@ from buildscad.error import (
     BuildscadOpenSCADFailed,
     BuildscadAssemblyFileNotFound,
     BuildscadOpenSCADVersionMismatch,
-    BuildscadFileError,
-    BuildscadPermissionDenied,
-    BuildscadDiskFull,
     BuildscadInvalidOutputType,
     BuildscadInvalidColorScheme,
 )
@@ -37,9 +34,6 @@ __all__ = [
     "BuildscadOpenSCADFailed",
     "BuildscadAssemblyFileNotFound",
     "BuildscadOpenSCADVersionMismatch",
-    "BuildscadFileError",
-    "BuildscadPermissionDenied",
-    "BuildscadDiskFull",
     "BuildscadInvalidOutputType",
     "BuildscadInvalidColorScheme",
 ]

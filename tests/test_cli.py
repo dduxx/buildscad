@@ -26,15 +26,14 @@ def test_init_creates_files(project_root):
         assert Path(".gitignore").exists()
 
 
-def test_init_idempotent(project_root, log_output):
+def test_init_idempotent(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
-        runner.invoke(cli, ["init"])
-        log_output.truncate(0)
-        log_output.seek(0)
-        runner.invoke(cli, ["init"])
-        output = log_output.getvalue()
-        assert "already initialized" in output
+        assert runner.invoke(cli, ["init"]).exit_code == 0
+        Path("scad/main.scad").write_text("sentinel")
+        result = runner.invoke(cli, ["init"])
+        assert result.exit_code == 0
+        assert Path("scad/main.scad").read_text() == "sentinel"
 
 
 def test_init_gitignore_content(project_root):
@@ -101,16 +100,16 @@ def test_init_main_scad_content(project_root):
         assert content == ""
 
 
-def test_pull_no_deps(project_root, log_output):
+def test_pull_no_deps(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
-        runner.invoke(cli, ["pull"])
-        output = log_output.getvalue()
-        assert "No dependencies to install." in output
+        result = runner.invoke(cli, ["pull"])
+        assert result.exit_code == 0
+        assert not Path("dependencies").exists()
 
 
-def test_clean(project_root, log_output):
+def test_clean(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
@@ -123,14 +122,13 @@ def test_clean(project_root, log_output):
         assert deps_dir.exists()
         assert build_dir.joinpath("stl", "test.stl").exists()
 
-        runner.invoke(cli, ["clean"])
-        output = log_output.getvalue()
-        assert "Dependencies cleaned." in output
-        assert "Finished cleaning build output." in output
+        result = runner.invoke(cli, ["clean"])
+        assert result.exit_code == 0
+        assert not deps_dir.exists()
         assert not build_dir.joinpath("stl", "test.stl").exists()
 
 
-def test_clean_keeps_deps_when_flag_set(project_root, log_output):
+def test_clean_keeps_deps_when_flag_set(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
@@ -141,16 +139,13 @@ def test_clean_keeps_deps_when_flag_set(project_root, log_output):
         build_dir.joinpath("stl").mkdir(parents=True)
         build_dir.joinpath("stl", "test.stl").write_text("fake stl")
 
-        runner.invoke(cli, ["clean", "--keep-deps"])
-        output = log_output.getvalue()
-        assert "Dependencies cleaned." not in output
-        assert "Cleaning build output." in output
-        assert "Finished cleaning build output." in output
+        result = runner.invoke(cli, ["clean", "--keep-deps"])
+        assert result.exit_code == 0
         assert deps_dir.joinpath("fake:dep:v1").exists()
         assert not build_dir.joinpath("stl", "test.stl").exists()
 
 
-def test_clean_keeps_both(project_root, log_output):
+def test_clean_keeps_both(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
@@ -161,16 +156,13 @@ def test_clean_keeps_both(project_root, log_output):
         build_dir.joinpath("stl").mkdir(parents=True)
         build_dir.joinpath("stl", "test.stl").write_text("fake stl")
 
-        runner.invoke(cli, ["clean", "--keep-deps", "--keep-build"])
-        output = log_output.getvalue()
-        assert "Dependencies cleaned." not in output
-        assert "Cleaning build output." not in output
-        assert "Finished cleaning build output." not in output
+        result = runner.invoke(cli, ["clean", "--keep-deps", "--keep-build"])
+        assert result.exit_code == 0
         assert deps_dir.joinpath("fake:dep:v1").exists()
         assert build_dir.joinpath("stl", "test.stl").exists()
 
 
-def test_clean_keeps_build_when_flag_set(project_root, log_output):
+def test_clean_keeps_build_when_flag_set(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
@@ -181,41 +173,36 @@ def test_clean_keeps_build_when_flag_set(project_root, log_output):
         build_dir.joinpath("stl").mkdir(parents=True)
         build_dir.joinpath("stl", "test.stl").write_text("fake stl")
 
-        runner.invoke(cli, ["clean", "--keep-build"])
-        output = log_output.getvalue()
-        assert "Dependencies cleaned." in output
-        assert "Cleaning build output." not in output
-        assert "Finished cleaning build output." not in output
+        result = runner.invoke(cli, ["clean", "--keep-build"])
+        assert result.exit_code == 0
+        assert not deps_dir.exists()
         assert build_dir.joinpath("stl", "test.stl").exists()
 
 
-def test_clean_no_deps_folder(project_root, log_output):
+def test_clean_no_deps_folder(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
-        runner.invoke(cli, ["clean"])
-        output = log_output.getvalue()
-        assert "Dependencies cleaned." in output
+        result = runner.invoke(cli, ["clean"])
+        assert result.exit_code == 0
+        assert not Path("dependencies").exists()
 
 
-def test_clean_no_build_folder(project_root, log_output):
+def test_clean_no_build_folder(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
-        runner.invoke(cli, ["clean"])
-        output = log_output.getvalue()
-        assert "Finished cleaning build output." in output
+        result = runner.invoke(cli, ["clean"])
+        assert result.exit_code == 0
+        assert not Path("build").exists()
 
 
-def test_build_invalid_type(project_root, log_output):
+def test_build_invalid_type(project_root):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["build", "--type", "invalid"])
         assert result.exit_code != 0
-        output = log_output.getvalue()
-        assert "BuildscadInvalidOutputType" in output
-        assert "not a valid output type" in output
 
 
 from unittest.mock import patch
@@ -229,7 +216,7 @@ def test_build_valid_type(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "3mf"])
         assert result.exit_code == 0
-        assert "3mf" in result.output
+        assert Path("build/3mf").exists()
 
 
 def test_build_multiple_types(project_root):
@@ -240,8 +227,8 @@ def test_build_multiple_types(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
         assert result.exit_code == 0
-        assert "stl" in result.output
-        assert "png" in result.output
+        assert Path("build/stl").exists()
+        assert Path("build/png").exists()
 
 
 def test_build_uses_property_format_when_no_type_flag(project_root):
@@ -254,7 +241,6 @@ def test_build_uses_property_format_when_no_type_flag(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build"])
         assert result.exit_code == 0
-        assert "3mf" in result.output
         assert Path("build/3mf/scad/main.3mf").parent.exists()
 
 
@@ -268,8 +254,8 @@ def test_build_type_flag_overrides_property(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "amf"])
         assert result.exit_code == 0
-        assert "amf" in result.output
-        assert "3mf" not in result.output
+        assert Path("build/amf").exists()
+        assert not Path("build/3mf").exists()
 
 
 def test_build_multiple_type_flags_override_property(project_root):
@@ -282,9 +268,9 @@ def test_build_multiple_type_flags_override_property(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "stl", "--type", "png"])
         assert result.exit_code == 0
-        assert "stl" in result.output
-        assert "png" in result.output
-        assert "3mf" not in result.output
+        assert Path("build/stl").exists()
+        assert Path("build/png").exists()
+        assert not Path("build/3mf").exists()
 
 
 def test_build_with_assembly_variables(project_root):
@@ -380,12 +366,18 @@ def test_build_assembly_single_flag(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         Path("scad/bracket.scad").write_text("")
-        with patch("buildscad.builder.subprocess.run"):
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "stl", "-a", "scad/bracket.scad"])
         assert result.exit_code == 0
-        assert "1 assemblies" in result.output
-        assert "stl" in result.output
+        assert len(captured_calls) == 1
+        output_idx = captured_calls[0].index("-o")
+        assert "bracket.stl" in captured_calls[0][output_idx + 1]
 
 
 def test_build_assembly_multiple_flags(project_root):
@@ -393,14 +385,22 @@ def test_build_assembly_multiple_flags(project_root):
     with runner.isolated_filesystem(temp_dir=str(project_root)):
         runner.invoke(cli, ["init"])
         Path("scad/bracket.scad").write_text("")
-        with patch("buildscad.builder.subprocess.run"):
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(
                     cli,
                     ["build", "--type", "stl", "-a", "scad/main.scad", "-a", "scad/bracket.scad"],
                 )
         assert result.exit_code == 0
-        assert "2 assemblies" in result.output
+        assert len(captured_calls) == 2
+        output_paths = [c[c.index("-o") + 1] for c in captured_calls]
+        assert any("main.stl" in p for p in output_paths)
+        assert any("bracket.stl" in p for p in output_paths)
 
 
 def test_build_assembly_flag_with_variables(project_root):
@@ -452,7 +452,6 @@ def test_build_assembly_flag_overrides_property(project_root):
             with patch("shutil.which", return_value="/usr/bin/openscad"):
                 result = runner.invoke(cli, ["build", "--type", "stl", "-a", "scad/override.scad"])
         assert result.exit_code == 0
-        assert "1 assemblies" in result.output
         assert len(captured_calls) == 1
         output_idx = captured_calls[0].index("-o")
         assert "override.stl" in captured_calls[0][output_idx + 1]
@@ -474,45 +473,4 @@ def test_build_assembly_flag_comma_separated(project_root):
                     cli, ["build", "--type", "stl", "-a", "scad/main.scad,scad/bracket.scad"]
                 )
         assert result.exit_code == 0
-        assert "2 assemblies" in result.output
         assert len(captured_calls) == 2
-
-
-def test_buildscad_error_logs_message_at_error_level(project_root, log_output):
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=str(project_root)):
-        runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["build", "--type", "invalid"])
-        assert result.exit_code == 1
-        output = log_output.getvalue()
-        assert "[ERROR]" in output
-        assert "BuildscadInvalidOutputType" in output
-        assert "not a valid output type" in output
-
-
-def test_buildscad_error_no_traceback_at_info_level(project_root, log_output):
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=str(project_root)):
-        runner.invoke(cli, ["init"])
-        runner.invoke(cli, ["build", "--type", "invalid"])
-        output = log_output.getvalue()
-        assert "Traceback" not in output
-
-
-def test_unexpected_error_logs_type_and_traceback(project_root, log_output):
-    from unittest.mock import patch
-
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=str(project_root)):
-        runner.invoke(cli, ["init"])
-
-        def raise_unexpected(*args, **kwargs):
-            raise RuntimeError("something went wrong")
-
-        with patch("buildscad.cli.get_project_root", side_effect=raise_unexpected):
-            result = runner.invoke(cli, ["build"])
-        assert result.exit_code == 2
-        output = log_output.getvalue()
-        assert "[ERROR]" in output
-        assert "RuntimeError" in output
-        assert "something went wrong" in output

@@ -11,7 +11,11 @@ from buildscad.dependencies import (
     install_all_dependencies,
     get_dependency_paths,
 )
-from buildscad.error import BuildscadInvalidGitHubUrl, BuildscadOpenSCADVersionMismatch
+from buildscad.error import (
+    BuildscadInvalidGitHubUrl,
+    BuildscadOpenSCADVersionMismatch,
+    BuildscadCircularDependency,
+)
 
 
 def test_sanitize_name_basic():
@@ -149,32 +153,29 @@ def test_install_all_dependencies_recursive(tmp_path):
 
 
 def test_install_all_dependencies_circular(tmp_path):
-    deps_a = [
-        {"url": "https://github.com/authorB/depB", "ref": "v1"},
-    ]
-
-    deps_b = [
-        {"url": "https://github.com/authorA/depA", "ref": "v1"},
-    ]
-
-    call_count = {"count": 0}
+    deps_by_url = {
+        "https://github.com/authorA/depA": [
+            {"url": "https://github.com/authorB/depB", "ref": "v1"}
+        ],
+        "https://github.com/authorB/depB": [
+            {"url": "https://github.com/authorA/depA", "ref": "v1"}
+        ],
+    }
 
     def side_effect(url, ref, project_root, ignore_cache=False):
-        call_count["count"] += 1
         dep_path = _mock_install_dependency(url, ref, project_root, ignore_cache)
-        if ref == "v1":
-            dep_path.joinpath("buildscad.properties").write_text(f"BUILDSCAD_PROJECT={ref}\n")
-            dep_path.joinpath("deps.json").write_text(json.dumps(deps_b))
-        elif ref == "v2":
-            dep_path.joinpath("buildscad.properties").write_text(f"BUILDSCAD_PROJECT={ref}\n")
-            dep_path.joinpath("deps.json").write_text(json.dumps(deps_a))
+        dep_path.joinpath("buildscad.properties").write_text("BUILDSCAD_PROJECT=test\n")
+        dep_path.joinpath("deps.json").write_text(json.dumps(deps_by_url[url]))
         return dep_path
 
     with patch("buildscad.dependencies.install_dependency", side_effect=side_effect):
         with patch("buildscad.dependencies.get_openscad_path", return_value="openscad"):
-            install_all_dependencies(deps_a, tmp_path)
+            with pytest.raises(BuildscadCircularDependency) as exc_info:
+                install_all_dependencies(
+                    [{"url": "https://github.com/authorA/depA", "ref": "v1"}], tmp_path
+                )
 
-    assert call_count["count"] == 2
+    assert "Circular dependency detected" in str(exc_info.value)
 
 
 def test_install_all_dependencies_duplicate_transitive(tmp_path):

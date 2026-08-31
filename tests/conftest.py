@@ -1,13 +1,11 @@
 import tempfile
 import os
-import logging
-from io import StringIO
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
-from buildscad.cli import cli, logger, ISOFormatter
+from buildscad.cli import cli
 
 
 @pytest.fixture
@@ -32,18 +30,3 @@ def initialized_project(tmp_dir):
         yield tmp_dir
     finally:
         os.chdir(original_cwd)
-
-
-@pytest.fixture
-def log_output():
-    stream = StringIO()
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(ISOFormatter())
-    logger.addHandler(handler)
-    original_level = logger.level
-    logger.setLevel(logging.INFO)
-    try:
-        yield stream
-    finally:
-        logger.removeHandler(handler)
-        logger.setLevel(original_level)
