@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-08-31)
+
+### Bug Fixes
+
+- Consolidate tests and fix missing errors
+  ([`676bf2b`](https://github.com/dduxx/buildscad/commit/676bf2b811defdc9d29082fb1195ab4668848b7f))
+
+
 ## v1.4.0 (2026-07-28)
 
 ### Features
