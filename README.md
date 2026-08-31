@@ -165,7 +165,7 @@ If a dependency is itself a buildscad project (has both `buildscad.properties` a
 
 Since each dependency's version is part of its directory name, multiple versions of the same library can coexist. Each sub-project uses whatever version it declares.
 
-Circular dependencies are handled via a tracking set that prevents infinite recursion.
+Circular dependencies are detected via a tracking set and cause the build to fail with a `BuildscadCircularDependency` error.
 
 ## Project Structure
 

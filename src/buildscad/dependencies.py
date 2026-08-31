@@ -10,6 +10,7 @@ from buildscad.error import (
     BuildscadInvalidGitHubUrl,
     BuildscadCloneFailed,
     BuildscadConfigError,
+    BuildscadCircularDependency,
 )
 from buildscad.version import check_openscad_version
 
@@ -110,9 +111,12 @@ def install_all_dependencies(
     project_root: Path,
     ignore_cache: bool = False,
     seen: set | None = None,
+    stack: list | None = None,
 ) -> list[Path]:
     if seen is None:
         seen = set()
+    if stack is None:
+        stack = []
 
     installed = []
     openscad_path = get_openscad_path(project_root)
@@ -122,11 +126,17 @@ def install_all_dependencies(
         ref = dep.get("ref", "main")
         key = f"{url}:{ref}"
 
+        if key in stack:
+            raise BuildscadCircularDependency(
+                f"Circular dependency detected: {' -> '.join(stack + [key])}"
+            )
+
         if key in seen:
             logger.debug(f"Skipping already processed dependency: {key}")
             continue
 
         seen.add(key)
+        stack.append(key)
 
         path = install_dependency(url, ref, project_root, ignore_cache)
         installed.append(path)
@@ -151,7 +161,7 @@ def install_all_dependencies(
                 sub_deps = config_load_deps(path)
                 if sub_deps:
                     sub_installed = install_all_dependencies(
-                        sub_deps, project_root, ignore_cache, seen
+                        sub_deps, project_root, ignore_cache, seen, stack
                     )
                     _create_symlink(path, project_root)
                     installed.extend(sub_installed)
@@ -160,6 +170,8 @@ def install_all_dependencies(
                 logger.debug(
                     f"Dependency {path.name} has invalid {DEPS_FILE}, skipping recursive resolution."
                 )
+
+        stack.pop()
 
     return installed
 
