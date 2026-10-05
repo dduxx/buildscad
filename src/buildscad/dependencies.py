@@ -65,12 +65,14 @@ def _create_symlink(dep_path: Path, project_root: Path) -> None:
     for item in top_deps_dir.iterdir():
         if not item.is_dir() and not item.is_symlink():
             continue
+        if item.name == dep_path.name:
+            continue
 
         link_path = sub_dep_dir.joinpath(item.name)
         if link_path.exists() or link_path.is_symlink():
             continue
 
-        relative_path = Path("..").joinpath(item.name)
+        relative_path = Path("..", "..").joinpath(item.name)
         link_path.symlink_to(relative_path)
         logger.debug(f"Symlinked {item.name} -> {relative_path}")
 

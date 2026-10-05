@@ -149,7 +149,8 @@ def test_install_all_dependencies_recursive(tmp_path):
     assert sub_dep_dir.exists()
     link = sub_dep_dir.joinpath("authorC:depC:v3")
     assert link.is_symlink()
-    assert link.readlink() == Path("..").joinpath("authorC:depC:v3")
+    assert link.readlink() == Path("..", "..").joinpath("authorC:depC:v3")
+    assert link.resolve() == top_deps_dir.joinpath("authorC:depC:v3")
 
 
 def test_install_all_dependencies_circular(tmp_path):
