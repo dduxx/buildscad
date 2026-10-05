@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-10-05)
+
+### Bug Fixes
+
+- Issue with symlinks not working properly for deps
+  ([`b40bf78`](https://github.com/dduxx/buildscad/commit/b40bf782b84f5416b5a6c2e6a3725cf9bce89446))
+
+
 ## v1.4.1 (2026-08-31)
 
 ### Bug Fixes
