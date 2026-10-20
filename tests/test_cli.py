@@ -474,3 +474,64 @@ def test_build_assembly_flag_comma_separated(project_root):
                 )
         assert result.exit_code == 0
         assert len(captured_calls) == 2
+
+
+def test_build_filter_matches_subset(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/bracket.scad").write_text("")
+        props = Path("buildscad.properties").read_text()
+        Path("buildscad.properties").write_text(
+            props + f"{PROP_ASSEMBLIES}=scad/main.scad,scad/bracket.scad\n"
+        )
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "-f", "*bracket*"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        output_idx = captured_calls[0].index("-o")
+        assert "bracket.stl" in captured_calls[0][output_idx + 1]
+
+
+def test_build_filter_no_match(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(cli, ["build", "--type", "stl", "-f", "scad/nope.scad"])
+        assert result.exit_code == 0
+        assert len(captured_calls) == 0
+
+
+def test_build_filter_ignored_when_assembly_flag(project_root):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=str(project_root)):
+        runner.invoke(cli, ["init"])
+        Path("scad/bracket.scad").write_text("")
+        captured_calls = []
+
+        def mock_run(*args, **kwargs):
+            captured_calls.append(args[0])
+
+        with patch("buildscad.builder.subprocess.run", side_effect=mock_run):
+            with patch("shutil.which", return_value="/usr/bin/openscad"):
+                result = runner.invoke(
+                    cli,
+                    ["build", "--type", "stl", "-a", "scad/bracket.scad", "-f", "scad/nope.scad"],
+                )
+        assert result.exit_code == 0
+        assert len(captured_calls) == 1
+        output_idx = captured_calls[0].index("-o")
+        assert "bracket.stl" in captured_calls[0][output_idx + 1]
