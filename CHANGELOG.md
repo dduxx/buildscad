@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-10-20)
+
+### Features
+
+- Added support for glob filtering assemblies
+  ([`c0cf681`](https://github.com/dduxx/buildscad/commit/c0cf681ff9f0f05e216b51a6d222b0b937bb91b4))
+
+
 ## v1.4.2 (2026-10-05)
 
 ### Bug Fixes
