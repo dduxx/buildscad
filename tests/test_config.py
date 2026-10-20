@@ -16,6 +16,7 @@ from buildscad.config import (
     get_worker_threads,
     is_experimental_enabled,
     parse_assembly,
+    filter_assemblies,
     _unescape_value,
     _sanitize_filename,
     Assembly,
@@ -181,6 +182,41 @@ def test_unescape_value():
     assert _unescape_value(r"a\=b") == "a=b"
     assert _unescape_value(r"C:\\path") == r"C:\path"
     assert _unescape_value(r"\\;\=") == r"\;="
+
+
+def test_filter_assemblies_exact_path():
+    assemblies = [
+        Assembly(path="scad/main.scad", variables={}),
+        Assembly(path="scad/bracket.scad", variables={}),
+    ]
+    result = filter_assemblies(assemblies, "scad/bracket.scad")
+    assert result == [Assembly(path="scad/bracket.scad", variables={})]
+
+
+def test_filter_assemblies_glob():
+    assemblies = [
+        Assembly(path="scad/main.scad", variables={}),
+        Assembly(path="scad/bracket.scad", variables={}),
+    ]
+    assert filter_assemblies(assemblies, "scad/*.scad") == assemblies
+    assert filter_assemblies(assemblies, "*bracket*") == [
+        Assembly(path="scad/bracket.scad", variables={})
+    ]
+
+
+def test_filter_assemblies_case_sensitive():
+    assemblies = [Assembly(path="scad/bracket.scad", variables={})]
+    assert filter_assemblies(assemblies, "*BRACKET*") == []
+
+
+def test_filter_assemblies_ignores_variables():
+    assemblies = [Assembly(path="scad/main.scad", variables={"threads": "metric"})]
+    assert filter_assemblies(assemblies, "threads") == []
+
+
+def test_filter_assemblies_no_match():
+    assemblies = [Assembly(path="scad/main.scad", variables={})]
+    assert filter_assemblies(assemblies, "scad/nope.scad") == []
 
 
 def test_load_deps(initialized_project):

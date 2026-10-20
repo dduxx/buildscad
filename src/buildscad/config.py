@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import os
 import re
@@ -280,6 +281,10 @@ def parse_assemblies(entries: tuple[str, ...]) -> list[Assembly]:
     for entry in entries:
         result.extend([parse_assembly(a) for a in entry.split(",") if a.strip()])
     return result
+
+
+def filter_assemblies(assemblies: list[Assembly], filter_str: str) -> list[Assembly]:
+    return [a for a in assemblies if fnmatch.fnmatchcase(a.path, filter_str)]
 
 
 def get_assemblies(project_root: Path | None = None) -> list[Assembly]:

@@ -16,6 +16,7 @@ from buildscad.config import (
     get_project_root,
     get_assemblies,
     parse_assemblies,
+    filter_assemblies,
     get_log_level,
     get_output_formats,
     get_worker_threads,
@@ -199,8 +200,15 @@ def clean(keep_deps, keep_build):
     type=int,
     help="Number of threads to use when building assemblies. Overrides BUILDSCAD_THREADS property.",
 )
+@click.option(
+    "-f",
+    "--filter",
+    "filter_str",
+    default=None,
+    help="Filter assemblies by a glob pattern matched against the assembly path. Only applies to assemblies from BUILDSCAD_ASSEMBLIES. Ignored when --assembly is provided.",
+)
 @handle_errors
-def build(output_types, cli_assemblies, multithread):
+def build(output_types, cli_assemblies, multithread, filter_str):
     """Build assemblies into output files."""
 
     project_root = get_project_root()
@@ -217,6 +225,11 @@ def build(output_types, cli_assemblies, multithread):
         assemblies = parse_assemblies(cli_assemblies)
     else:
         assemblies = get_assemblies(project_root)
+        if filter_str:
+            assemblies = filter_assemblies(assemblies, filter_str)
+            if not assemblies:
+                logger.warning(f"No assemblies matched the filter: {filter_str}")
+                return
 
     if not assemblies:
         logger.warning("No assemblies configured.")
